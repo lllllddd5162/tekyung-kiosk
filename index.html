@@ -11,13 +11,13 @@
 ════════════════════════════════════════ */
 :root{
   /* 키오스크 (다크) */
-  --bg:#0d0d0d; --sf:#161616; --sf2:#202020; --sf3:#2a2a2a; --bd:#333;
-  --tx:#f2f2f2; --tx2:#aaa; --tx3:#666;
+  --bg:#f7f5f2; --sf:#ffffff; --sf2:#f0ede8; --sf3:#e0dbd4; --bd:#d4cfc8;
+  --tx:#1a1208; --tx2:#6b5a3e; --tx3:#a09070;
   --accent:#ff6b35; --accentdim:rgba(255,107,53,.13); --accentdim2:rgba(255,107,53,.06);
   --green:#27ae60; --greendim:rgba(39,174,96,.13);
   --blue:#3a9bd5; --bluedim:rgba(58,155,213,.13);
   --r:14px; --r2:10px;
-  --shadow:0 4px 24px rgba(0,0,0,.45); --shadow2:0 2px 12px rgba(0,0,0,.3);
+  --shadow:0 4px 24px rgba(0,0,0,.12); --shadow2:0 2px 12px rgba(0,0,0,.08);
   /* 보조장치 (아날로그) */
   --ab:#1c1508; --asf:#0f0c04; --asf2:#1a1508; --abd:#4a3a18; --abd2:#5a4a20;
   --atx:#e8d890; --atx2:#c8a840; --atx3:#8a6a28; --atx4:#5a4818;
@@ -77,8 +77,8 @@ body::before{
 /* ── 키오스크 프레임 (왼쪽) ── */
 #kiosk-frame{
   flex:1;display:flex;flex-direction:column;
-  background:#0a0a0a;
-  border:3px solid #444;
+  background:var(--bg);
+  border:3px solid #ccc;
   border-radius:16px 4px 4px 16px;
   overflow:hidden;
   box-shadow:
@@ -91,10 +91,10 @@ body::before{
 /* 키오스크 상단 화면 베젤 */
 #kiosk-frame::before{
   content:'● ● ●';position:absolute;top:0;left:0;right:0;
-  background:linear-gradient(180deg,#222,#111);
+  background:linear-gradient(180deg,#e8e4de,#ddd8d0);
   height:28px;display:flex;align-items:center;padding:0 1rem;
-  font-size:9px;color:#555;letter-spacing:.15em;z-index:50;
-  border-bottom:1px solid #333;
+  font-size:9px;color:#aaa;letter-spacing:.15em;z-index:50;
+  border-bottom:1px solid #ccc;
 }
 .kiosk-screen{
   flex:1;overflow:hidden;display:flex;flex-direction:column;
