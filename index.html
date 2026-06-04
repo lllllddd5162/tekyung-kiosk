@@ -32,17 +32,9 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Noto Sans KR',sans
 
 /* 나무 테이블 배경 */
 body{
-  background:var(--wood2);
-  background-image:
-    repeating-linear-gradient(92deg, transparent 0, transparent 38px, rgba(255,255,255,.012) 38px, rgba(255,255,255,.012) 40px),
-    repeating-linear-gradient(180deg, transparent 0, transparent 60px, rgba(0,0,0,.04) 60px, rgba(0,0,0,.04) 62px),
-    linear-gradient(170deg, #4a3318 0%, #2e1f0e 40%, #3d2b1a 70%, #251508 100%);
+  background:#ffffff;
 }
-body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Crect width='6' height='6' fill='none'/%3E%3Ccircle cx='1' cy='1' r='.3' fill='%23ffffff' opacity='.015'/%3E%3Ccircle cx='4' cy='4' r='.2' fill='%23000000' opacity='.025'/%3E%3C/svg%3E");
-}
+body::before{display:none;}
 
 /* ── 최상단 타이틀 바 ── */
 #topbar{
@@ -736,14 +728,7 @@ body::before{
       <div class="a-hdr-badge">보조 장치</div>
     </div>
     <div class="a-body">
-      <div class="a-devinfo">▶ 식사방법 → 메뉴 → 다이얼 → 담기 → 결제</div>
-      <div>
-        <div class="a-sec-title">EAT TYPE</div>
-        <div class="a-eat-grid">
-          <div class="a-eat-btn" id="a-eat-in" onclick="aSelEat('in')"><span class="eico">🪑</span><div class="enm">매장</div><div class="edsc">For Here</div></div>
-          <div class="a-eat-btn" id="a-eat-out" onclick="aSelEat('out')"><span class="eico">🛍️</span><div class="enm">포장</div><div class="edsc">To Go</div></div>
-        </div>
-      </div>
+      <div class="a-devinfo">▶ 메뉴 선택 → 다이얼 수량 → 담기(매장/포장) → 결제</div>
       <div>
         <div class="a-sec-title">MENU BUTTONS</div>
         <div class="a-bgrid" id="a-bgrid"></div>
