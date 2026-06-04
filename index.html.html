@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>테경카페 — 키오스크 + 보조 장치 시뮬레이터</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════
+   전역 / 테이블 배경
+════════════════════════════════════════ */
+:root{
+  /* 키오스크 (다크) */
+  --bg:#0d0d0d; --sf:#161616; --sf2:#202020; --sf3:#2a2a2a; --bd:#333;
+  --tx:#f2f2f2; --tx2:#aaa; --tx3:#666;
+  --accent:#ff6b35; --accentdim:rgba(255,107,53,.13); --accentdim2:rgba(255,107,53,.06);
+  --green:#27ae60; --greendim:rgba(39,174,96,.13);
+  --blue:#3a9bd5; --bluedim:rgba(58,155,213,.13);
+  --r:14px; --r2:10px;
+  --shadow:0 4px 24px rgba(0,0,0,.45); --shadow2:0 2px 12px rgba(0,0,0,.3);
+  /* 보조장치 (아날로그) */
+  --ab:#1c1508; --asf:#0f0c04; --asf2:#1a1508; --abd:#4a3a18; --abd2:#5a4a20;
+  --atx:#e8d890; --atx2:#c8a840; --atx3:#8a6a28; --atx4:#5a4818;
+  --amber:#c8860a; --amber2:#a06808; --amber3:#f5c842;
+  --agreen:#3a8a3a; --agreentx:#7fff7f; --ared:#8a2020;
+  /* 나무 테이블 */
+  --wood1:#3d2b1a; --wood2:#2e1f0f; --wood3:#4a3520;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+.hidden{display:none!important;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Noto Sans KR',sans-serif;}
+
+/* 나무 테이블 배경 */
+body{
+  background:var(--wood2);
+  background-image:
+    repeating-linear-gradient(92deg, transparent 0, transparent 38px, rgba(255,255,255,.012) 38px, rgba(255,255,255,.012) 40px),
+    repeating-linear-gradient(180deg, transparent 0, transparent 60px, rgba(0,0,0,.04) 60px, rgba(0,0,0,.04) 62px),
+    linear-gradient(170deg, #4a3318 0%, #2e1f0e 40%, #3d2b1a 70%, #251508 100%);
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Crect width='6' height='6' fill='none'/%3E%3Ccircle cx='1' cy='1' r='.3' fill='%23ffffff' opacity='.015'/%3E%3Ccircle cx='4' cy='4' r='.2' fill='%23000000' opacity='.025'/%3E%3C/svg%3E");
+}
+
+/* ── 최상단 타이틀 바 ── */
+#topbar{
+  position:relative;z-index:10;
+  display:flex;align-items:center;justify-content:center;
+  padding:.55rem 1.5rem;
+  background:linear-gradient(180deg,#1a0e05,#120a02);
+  border-bottom:3px solid var(--amber2);
+  gap:1.25rem;flex-shrink:0;
+}
+#topbar::after{
+  content:'';position:absolute;bottom:-7px;left:0;right:0;height:4px;
+  background:repeating-linear-gradient(90deg,var(--amber) 0,var(--amber) 10px,#3a2005 10px,#3a2005 13px);
+  pointer-events:none;
+}
+.tb-brand{
+  font-family:'Courier Prime',monospace;font-size:15px;font-weight:700;
+  color:var(--amber3);letter-spacing:.2em;text-transform:uppercase;
+}
+.tb-sep{color:var(--amber2);font-size:18px;}
+.tb-sub{font-family:'Courier Prime',monospace;font-size:10px;color:var(--atx3);letter-spacing:.15em;}
+
+/* ── 메인 분할 레이아웃 ── */
+#stage{
+  position:relative;z-index:1;
+  flex:1;display:flex;align-items:stretch;
+  padding:.85rem 1rem .85rem;
+  gap:0;
+  height:calc(100vh - 42px);
+}
+
+/* ── 키오스크 프레임 (왼쪽) ── */
+#kiosk-frame{
+  flex:1;display:flex;flex-direction:column;
+  background:#0a0a0a;
+  border:3px solid #444;
+  border-radius:16px 4px 4px 16px;
+  overflow:hidden;
+  box-shadow:
+    -6px 0 20px rgba(0,0,0,.5),
+    0 6px 24px rgba(0,0,0,.6),
+    inset 0 1px 0 rgba(255,255,255,.06);
+  position:relative;
+  min-width:0;
+}
+/* 키오스크 상단 화면 베젤 */
+#kiosk-frame::before{
+  content:'● ● ●';position:absolute;top:0;left:0;right:0;
+  background:linear-gradient(180deg,#222,#111);
+  height:28px;display:flex;align-items:center;padding:0 1rem;
+  font-size:9px;color:#555;letter-spacing:.15em;z-index:50;
+  border-bottom:1px solid #333;
+}
+.kiosk-screen{
+  flex:1;overflow:hidden;display:flex;flex-direction:column;
+  margin-top:28px;
+}
+
+/* ── 중앙 분리 기둥 (나무 질감) ── */
+#divider{
+  width:36px;flex-shrink:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:0;position:relative;z-index:5;
+}
+.usb-plug{
+  width:14px;height:22px;
+  background:linear-gradient(180deg,#888,#555);
+  border-radius:3px;border:1px solid #333;
+  box-shadow:0 2px 4px rgba(0,0,0,.5);
+  position:relative;flex-shrink:0;
+}
+.usb-plug::after{
+  content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:8px;height:4px;background:#222;border-radius:1px;
+}
+.usb-cable{
+  width:6px;flex:1;min-height:20px;
+  background:linear-gradient(90deg,#222,#3a3a3a,#222);
+  border-radius:3px;
+  box-shadow:1px 0 3px rgba(0,0,0,.4),-1px 0 3px rgba(0,0,0,.4);
+  transition:background .3s, box-shadow .3s;
+}
+.usb-label{
+  font-family:'DM Mono',monospace;font-size:7px;color:#555;
+  letter-spacing:.08em;writing-mode:vertical-rl;
+  padding:4px 0;background:#1a1a1a;border-radius:2px;flex-shrink:0;
+}
+.usb-cable.syncing{
+  background:linear-gradient(180deg,var(--accent),rgba(255,107,53,.5),var(--accent));
+  box-shadow:0 0 8px rgba(255,107,53,.5);
+}
+#sync-toast{
+  position:absolute;bottom:56px;left:50%;transform:translateX(-50%);
+  background:rgba(255,107,53,.95);color:#fff;
+  font-size:11px;font-weight:700;padding:6px 14px;border-radius:99px;
+  white-space:nowrap;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;
+}
+#sync-toast.show{opacity:1;}
+.div-screw{display:none;}
+#divider::before,#divider::after{display:none;}
+
+/* ── 보조장치 프레임 (오른쪽) ── */
+#device-frame{
+  width:320px;flex-shrink:0;display:flex;flex-direction:column;
+  background:var(--ab);
+  border:3px solid var(--abd2);
+  border-radius:4px 16px 16px 4px;
+  overflow:hidden;
+  box-shadow:
+    6px 0 20px rgba(0,0,0,.5),
+    0 6px 24px rgba(0,0,0,.6),
+    inset 0 1px 0 rgba(200,184,96,.06);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%231c1508'/%3E%3Ccircle cx='1' cy='1' r='.4' fill='%23302010' opacity='.5'/%3E%3Ccircle cx='3' cy='3' r='.3' fill='%23251a08' opacity='.35'/%3E%3C/svg%3E");
+}
+
+/* ── 공통 스크롤 ── */
+.pane-scroll{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--sf3) transparent;}
+.pane-scroll::-webkit-scrollbar{width:3px;}
+.pane-scroll::-webkit-scrollbar-thumb{background:var(--sf3);border-radius:2px;}
+.apane-scroll{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--abd) transparent;}
+.apane-scroll::-webkit-scrollbar{width:3px;}
+.apane-scroll::-webkit-scrollbar-thumb{background:var(--abd);border-radius:2px;}
+
+/* ════════════════════════════════════════
+   키오스크 내부 UI
+════════════════════════════════════════ */
+.page{display:none;width:100%;height:100%;flex-direction:column;}
+.page.active{display:flex;}
+
+/* 대기 화면 */
+#pg-idle{
+  background:radial-gradient(ellipse 80% 60% at 50% 40%,rgba(255,107,53,.08),transparent 70%),var(--bg);
+  align-items:center;justify-content:center;position:relative;overflow:hidden;
+}
+#pg-idle::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,107,53,.04) 1px,transparent 1px);background-size:28px 28px;pointer-events:none;}
+.idle-inner{display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;z-index:1;width:100%;padding:1.5rem;}
+.idle-logo{font-size:3rem;margin-bottom:.4rem;animation:float 3s ease-in-out infinite;}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+.idle-brand{font-size:2rem;font-weight:900;letter-spacing:.04em;margin-bottom:.2rem;}
+.idle-brand span{color:var(--accent);}
+.idle-sub{font-size:11px;color:var(--tx2);margin-bottom:1.5rem;letter-spacing:.05em;}
+.idle-eat-title{font-size:12px;color:var(--tx2);margin-bottom:.65rem;}
+.idle-eat-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-bottom:1.25rem;}
+.k-eat-btn{padding:1rem .75rem;border-radius:var(--r);border:2px solid var(--bd);background:var(--sf);cursor:pointer;transition:all .25s;text-align:center;display:flex;flex-direction:column;align-items:center;gap:.4rem;}
+.k-eat-btn:hover{border-color:var(--accent);background:var(--accentdim);transform:translateY(-2px);}
+.k-eat-btn.selected{border-color:var(--accent);background:var(--accentdim);box-shadow:0 0 0 1px var(--accent);}
+.k-eat-btn .eico{font-size:1.8rem;}
+.k-eat-btn .enm{font-size:13px;font-weight:700;}
+.k-eat-btn .edsc{font-size:10px;color:var(--tx2);}
+.idle-hint{font-size:11px;color:var(--tx3);letter-spacing:.06em;animation:blink 2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:.4;}50%{opacity:1;}}
+
+/* 키오스크 헤더 */
+.kiosk-hdr{display:flex;align-items:center;gap:.6rem;padding:.6rem 1rem;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;}
+.kiosk-hdr-logo{font-size:1.1rem;font-weight:900;letter-spacing:.04em;}
+.kiosk-hdr-logo span{color:var(--accent);}
+.kiosk-hdr-eat{font-size:10px;font-family:'DM Mono',monospace;padding:2px 8px;border-radius:99px;border:1px solid var(--accent);color:var(--accent);background:var(--accentdim);}
+.kiosk-hdr-right{margin-left:auto;display:flex;align-items:center;gap:.5rem;}
+.cart-fab{display:flex;align-items:center;gap:.35rem;background:var(--accent);color:#fff;padding:5px 11px;border-radius:99px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s;box-shadow:0 2px 8px rgba(255,107,53,.3);}
+.cart-fab:hover{transform:scale(1.04);}
+.cart-fab .cnt{background:rgba(255,255,255,.25);border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;}
+.cart-fab.hidden{display:none;}
+
+/* 카테고리 탭 */
+.cat-tabs{display:flex;padding:.5rem .85rem;background:var(--sf);border-bottom:1px solid var(--bd);overflow-x:auto;flex-shrink:0;scrollbar-width:none;gap:4px;}
+.cat-tabs::-webkit-scrollbar{display:none;}
+.cat-tab{padding:.4rem .85rem;border-radius:99px;border:1px solid transparent;background:none;color:var(--tx2);font-size:11px;font-weight:500;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s;white-space:nowrap;}
+.cat-tab.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.cat-tab:hover:not(.on){background:var(--sf2);color:var(--tx);}
+
+/* 메뉴 그리드 */
+.menu-scroll{flex:1;overflow-y:auto;padding:.75rem .85rem;scrollbar-width:thin;scrollbar-color:var(--sf3) transparent;}
+.menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.menu-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:.7rem .5rem;cursor:pointer;transition:all .2s;text-align:center;display:flex;flex-direction:column;align-items:center;gap:.3rem;}
+.menu-card:hover{border-color:var(--accent);background:var(--accentdim2);transform:translateY(-2px);box-shadow:var(--shadow2);}
+.mc-em{font-size:1.8rem;}
+.mc-nm{font-size:11px;font-weight:700;color:var(--tx);line-height:1.3;}
+.mc-pr{font-size:10px;font-weight:600;color:var(--accent);font-family:'DM Mono',monospace;}
+.mc-cat{font-size:9px;color:var(--tx3);}
+
+/* 옵션 */
+#pg-option{background:var(--bg);}
+.opt-scroll{flex:1;overflow-y:auto;padding:.75rem .85rem;scrollbar-width:thin;scrollbar-color:var(--sf3) transparent;}
+.opt-preview{display:flex;align-items:center;gap:.85rem;padding:.85rem;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:.75rem;border-left:4px solid var(--accent);}
+.opt-prev-em{font-size:2rem;}
+.opt-prev-nm{font-size:14px;font-weight:700;}
+.opt-prev-pr{font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;font-weight:600;margin-top:2px;}
+.opt-section{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:.6rem;overflow:hidden;}
+.opt-sec-title{font-size:11px;font-weight:700;color:var(--tx2);padding:.6rem .85rem .45rem;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--bd);}
+.opt-chips{display:flex;flex-wrap:wrap;gap:5px;padding:.6rem .85rem;}
+.opt-chip{padding:4px 11px;border-radius:99px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx2);font-size:11px;cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;font-weight:500;}
+.opt-chip:hover{border-color:var(--accent);color:var(--tx);}
+.opt-chip.on{border-color:var(--accent);background:var(--accentdim);color:var(--accent);font-weight:700;}
+.qty-row{display:flex;align-items:center;justify-content:center;gap:1.25rem;padding:.85rem;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);}
+.qty-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.qty-btn:hover{background:var(--accent);border-color:var(--accent);color:#fff;}
+.qty-num{font-size:1.7rem;font-weight:700;font-family:'DM Mono',monospace;min-width:36px;text-align:center;}
+
+/* 하단 바 */
+.bottom-bar{padding:.7rem .85rem;background:var(--sf);border-top:1px solid var(--bd);flex-shrink:0;display:flex;gap:.6rem;}
+.btn-main{flex:1;padding:.8rem;border-radius:var(--r2);border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s;}
+.btn-accent{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(255,107,53,.25);}
+.btn-accent:hover{opacity:.9;} .btn-accent:disabled{opacity:.35;cursor:not-allowed;}
+.btn-ghost{background:var(--sf2);color:var(--tx);border:1px solid var(--bd);}
+.btn-ghost:hover{background:var(--sf3);}
+.kbtn-sm{width:auto;padding:.4rem .8rem;font-size:11px;border-radius:7px;}
+
+/* 장바구니 */
+#pg-cart{background:var(--bg);}
+.cart-scroll{flex:1;overflow-y:auto;padding:.75rem .85rem;scrollbar-width:thin;scrollbar-color:var(--sf3) transparent;}
+.k-cart-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.65rem;color:var(--tx3);}
+.k-cart-empty .cei{font-size:2.5rem;}
+.k-cart-item{display:flex;align-items:center;gap:.75rem;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:.8rem;margin-bottom:.55rem;transition:all .2s;}
+.ci-em{font-size:1.5rem;flex-shrink:0;}
+.ci-info{flex:1;min-width:0;}
+.ci-nm{font-size:12px;font-weight:700;margin-bottom:2px;}
+.ci-opts{font-size:10px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ci-eat{font-size:9px;font-family:'DM Mono',monospace;padding:1px 6px;border-radius:99px;margin-left:3px;}
+.ci-eat.in{background:var(--bluedim);color:var(--blue);}
+.ci-eat.out{background:var(--greendim);color:var(--green);}
+.ci-right{display:flex;flex-direction:column;align-items:flex-end;gap:.35rem;flex-shrink:0;}
+.ci-price{font-size:12px;font-weight:700;color:var(--accent);font-family:'DM Mono',monospace;}
+.ci-qty-row{display:flex;align-items:center;gap:.35rem;}
+.ci-qbtn{width:24px;height:24px;border-radius:50%;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.ci-qbtn:hover{background:var(--accent);border-color:var(--accent);color:#fff;}
+.ci-qnum{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;min-width:18px;text-align:center;}
+.ci-del{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:14px;padding:2px;transition:color .15s;}
+.ci-del:hover{color:#e55;}
+.cart-summary{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem;margin-bottom:.55rem;}
+.cs-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--tx2);}
+.cs-row.total{font-size:14px;font-weight:700;color:var(--tx);padding-top:.6rem;margin-top:.25rem;border-top:1px solid var(--bd);}
+.cs-row .amt{color:var(--accent);font-family:'DM Mono',monospace;}
+.cs-row.total .amt{font-size:16px;}
+
+/* 결제 */
+#pg-pay{background:var(--bg);}
+.pay-scroll{flex:1;overflow-y:auto;padding:.75rem .85rem;scrollbar-width:thin;scrollbar-color:var(--sf3) transparent;}
+.pay-section{margin-bottom:.85rem;}
+.pay-sec-title{font-size:10px;font-family:'DM Mono',monospace;color:var(--tx2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.55rem;display:flex;align-items:center;gap:.5rem;}
+.pay-sec-title::after{content:'';flex:1;height:1px;background:var(--bd);}
+.pay-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.pay-card{padding:.65rem .4rem;border-radius:var(--r2);border:1px solid var(--bd);background:var(--sf2);cursor:pointer;transition:all .2s;text-align:center;font-size:11px;font-weight:600;}
+.pay-card:hover{border-color:var(--accent);background:var(--accentdim);}
+.pay-card.on{border-color:var(--accent);background:var(--accentdim);color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+.pay-card .pci{font-size:1.2rem;display:block;margin-bottom:.25rem;}
+.pay-summary{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem;margin-bottom:.85rem;}
+.pay-sum-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bd);}
+.pay-sum-row:last-child{border:none;font-weight:700;font-size:14px;padding-top:.6rem;margin-top:.15rem;}
+.pay-sum-row .val{font-family:'DM Mono',monospace;color:var(--accent);}
+.pay-sum-row.lbl .val{color:var(--tx);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;}
+/* 할인 */
+.disc-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:.75rem;}
+.disc-tab{padding:5px 11px;border-radius:99px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx2);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s;white-space:nowrap;}
+.disc-tab.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.disc-tab:hover:not(.on){background:var(--sf3);color:var(--tx);}
+.disc-panel{animation:fadeIn .2s ease;}
+.disc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:.55rem;}
+.disc-card{background:var(--sf2);border:1.5px solid var(--bd);border-radius:var(--r2);padding:.65rem .4rem;cursor:pointer;text-align:center;transition:all .2s;}
+.disc-card:hover{border-color:var(--accent);background:var(--accentdim);}
+.disc-card.on{border-color:var(--accent);background:var(--accentdim);box-shadow:0 0 0 1px var(--accent);}
+.dc-logo{width:32px;height:32px;border-radius:50%;margin:0 auto .35rem;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;}
+.dc-logo.skt{background:#e5007f;color:#fff;} .dc-logo.kt{background:#e8003d;color:#fff;}
+.dc-logo.lgu{background:#a50ca5;color:#fff;font-size:10px;} .dc-logo.cj{background:#e4002b;color:#fff;font-size:10px;}
+.dc-logo.ok{background:#0066cc;color:#fff;font-size:10px;} .dc-logo.hp{background:#ff6600;color:#fff;}
+.dc-logo.shinhan{background:#0046ff;color:#fff;font-size:9px;} .dc-logo.kb{background:#ffb800;color:#222;font-size:10px;}
+.dc-logo.hyundai{background:#002d6e;color:#fff;} .dc-logo.samsung{background:#1428a0;color:#fff;}
+.dc-logo.lotte{background:#ed1c24;color:#fff;} .dc-logo.hana{background:#009b6a;color:#fff;font-size:9px;}
+.dc-name{font-size:10px;font-weight:700;margin-bottom:1px;color:var(--tx);}
+.dc-desc{font-size:9px;color:var(--tx2);line-height:1.4;}
+.dc-rate{color:#4caf7d;font-weight:700;}
+.disc-notice{font-size:10px;color:var(--tx3);text-align:center;padding:.45rem;background:var(--sf2);border-radius:7px;}
+.disc-none-box{text-align:center;padding:1rem;background:var(--sf2);border-radius:var(--r2);}
+.disc-selected{background:rgba(39,174,96,.13);border:1px solid var(--green);border-radius:var(--r2);padding:.5rem .85rem;font-size:11px;color:#4caf7d;font-weight:600;margin-top:.55rem;display:flex;align-items:center;justify-content:space-between;}
+.disc-selected button{background:none;border:1px solid #4caf7d;color:#4caf7d;border-radius:99px;padding:1px 8px;font-size:10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+
+/* 바코드 오버레이 */
+.barcode-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem;}
+.barcode-card{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:1.75rem 1.25rem;width:100%;max-width:300px;text-align:center;}
+.bc-title{font-size:15px;font-weight:700;margin-bottom:.3rem;}
+.bc-sub{font-size:11px;color:var(--tx2);margin-bottom:1rem;line-height:1.6;}
+.bc-scanner{width:160px;height:90px;border:2px solid var(--accent);border-radius:7px;margin:0 auto .85rem;position:relative;overflow:hidden;background:#0a0a0a;}
+.bc-line{position:absolute;width:100%;height:2px;background:var(--accent);top:0;box-shadow:0 0 8px var(--accent);animation:scanLine 1.5s ease-in-out infinite;}
+@keyframes scanLine{0%{top:0;}50%{top:calc(100% - 2px);}100%{top:0;}}
+.bc-bars{display:flex;gap:2px;align-items:flex-end;height:100%;padding:.4rem;justify-content:center;}
+.bc-bars div{background:#333;border-radius:1px;flex:1;}
+.bc-bars div:nth-child(1){height:70%}.bc-bars div:nth-child(2){height:90%}.bc-bars div:nth-child(3){height:50%}.bc-bars div:nth-child(4){height:80%}.bc-bars div:nth-child(5){height:60%}.bc-bars div:nth-child(6){height:95%}.bc-bars div:nth-child(7){height:45%}.bc-bars div:nth-child(8){height:75%}.bc-bars div:nth-child(9){height:85%}.bc-bars div:nth-child(10){height:55%}
+.bc-timer{font-size:11px;color:var(--tx2);}
+.bc-timer span{color:var(--accent);font-family:'DM Mono',monospace;font-weight:700;}
+
+/* 결제 처리 */
+#pg-processing{background:var(--bg);align-items:center;justify-content:center;}
+.proc-card{background:var(--sf);border:1px solid var(--bd);border-radius:18px;padding:2rem 1.5rem;text-align:center;box-shadow:var(--shadow);width:100%;max-width:340px;margin:1rem;animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.proc-icon{font-size:3rem;margin-bottom:.85rem;display:block;}
+.proc-title{font-size:18px;font-weight:900;margin-bottom:.4rem;}
+.proc-sub{font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:1.25rem;}
+.proc-amount{background:var(--bg);border:2px solid var(--accent);border-radius:var(--r);padding:.75rem 1rem;margin-bottom:1.25rem;font-size:20px;font-weight:900;font-family:'DM Mono',monospace;color:var(--accent);}
+.card-slot{width:110px;height:72px;border:3px dashed var(--bd);border-radius:9px;margin:0 auto 1.25rem;position:relative;overflow:hidden;background:var(--sf2);display:flex;align-items:center;justify-content:center;}
+.card-slot-label{font-size:10px;color:var(--tx3);font-family:'DM Mono',monospace;}
+.card-anim{width:84px;height:50px;background:linear-gradient(135deg,#2a2a2a,#1a1a1a);border-radius:5px;border:1px solid var(--bd);position:absolute;top:-56px;animation:insertCard 1.2s ease forwards .3s;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+.card-anim::before{content:'';width:46px;height:7px;background:linear-gradient(90deg,#c8a020,#f5d060,#c8a020);border-radius:2px;position:absolute;top:16px;left:10px;}
+@keyframes insertCard{0%{top:-56px;}60%{top:9px;}80%{top:4px;}100%{top:7px;}}
+.proc-bar-wrap{background:var(--sf2);border-radius:99px;height:5px;overflow:hidden;margin-bottom:.85rem;}
+.proc-bar{height:100%;border-radius:99px;background:var(--accent);width:0%;transition:width .1s linear;}
+.qr-box{width:120px;height:120px;background:#fff;border-radius:8px;margin:0 auto 1.25rem;padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.qr-box div{border-radius:1px;}
+.proc-success{color:var(--green);font-size:2.5rem;margin-bottom:.4rem;display:block;animation:popIn .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{opacity:0;transform:scale(.85);}to{opacity:1;transform:scale(1);}}
+.proc-steps{display:flex;flex-direction:column;gap:5px;margin-bottom:1.25rem;text-align:left;}
+.proc-step{display:flex;align-items:center;gap:.5rem;font-size:12px;padding:.45rem .65rem;border-radius:7px;background:var(--sf2);}
+.proc-step.done{background:var(--greendim);color:var(--green);}
+.proc-step.active{background:var(--accentdim);color:var(--accent);}
+.proc-step .si{font-size:13px;}
+
+/* 스탬프 */
+#pg-stamp{background:var(--bg);align-items:center;justify-content:center;}
+.stamp-card{background:var(--sf);border:1px solid var(--bd);border-radius:18px;padding:1.5rem 1.25rem;width:100%;max-width:340px;text-align:center;margin:.75rem;box-shadow:var(--shadow);}
+.stamp-ico{font-size:2.5rem;margin-bottom:.6rem;}
+.stamp-ttl{font-size:18px;font-weight:900;margin-bottom:.35rem;}
+.stamp-sub{font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:1.1rem;}
+.phone-display{display:flex;align-items:center;justify-content:center;gap:3px;background:var(--bg);border:2px solid var(--accent);border-radius:var(--r);padding:.7rem .85rem;margin-bottom:.85rem;font-family:'DM Mono',monospace;font-size:19px;font-weight:700;letter-spacing:.04em;}
+.pseg{color:var(--tx3);transition:color .2s;} .pseg.filled{color:var(--tx);} .pseg.active{color:var(--accent);} .pdash{color:var(--tx3);}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:.85rem;}
+.kp-btn{background:var(--sf2);border:1px solid var(--bd);border-radius:var(--r2);padding:0;font-size:18px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;color:var(--tx);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:background .1s,border-color .1s;line-height:1;min-height:54px;width:100%;touch-action:manipulation;user-select:none;}
+.kp-btn span{font-size:8px;font-weight:400;color:var(--tx3);letter-spacing:.08em;}
+.kp-btn:hover{background:var(--sf3);border-color:var(--accent);}
+.kp-btn:active,.kp-btn.pressed{background:var(--accentdim);border-color:var(--accent);color:var(--accent);}
+.kp-empty{background:none!important;border:none!important;cursor:default;}
+.kp-del{font-size:20px;color:var(--tx2);}
+.stamp-btns{display:flex;gap:.6rem;}
+
+/* 완료 */
+#pg-done{background:radial-gradient(ellipse 70% 50% at 50% 40%,rgba(39,174,96,.07),transparent 70%),var(--bg);align-items:center;justify-content:center;}
+.k-done-card{background:var(--sf);border:1px solid var(--bd);border-radius:18px;padding:1.75rem 1.5rem;width:100%;max-width:360px;text-align:center;margin:.75rem;box-shadow:var(--shadow);animation:popIn .4s cubic-bezier(.34,1.56,.64,1);}
+.k-done-check{font-size:3rem;margin-bottom:.4rem;}
+.k-done-ttl{font-size:20px;font-weight:900;margin-bottom:.3rem;}
+.k-done-sub{font-size:12px;color:var(--tx2);margin-bottom:1.1rem;}
+.k-order-box{background:var(--bg);border:2px solid var(--accent);border-radius:var(--r);padding:1rem;margin-bottom:1.1rem;}
+.k-order-lbl{font-size:10px;font-family:'DM Mono',monospace;color:var(--tx2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.25rem;}
+.k-order-num{font-size:3rem;font-weight:900;font-family:'DM Mono',monospace;color:var(--accent);line-height:1;}
+.k-done-items{background:var(--sf2);border-radius:var(--r2);padding:.7rem .85rem;margin-bottom:1rem;text-align:left;}
+.k-done-item{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--bd);color:var(--tx2);}
+.k-done-item:last-child{border:none;}
+.k-done-total{display:flex;justify-content:space-between;font-size:14px;font-weight:700;padding:.55rem .85rem;background:var(--accentdim);border-radius:var(--r2);margin-bottom:1rem;}
+.k-done-total .amt{color:var(--accent);font-family:'DM Mono',monospace;}
+.k-done-wait{font-size:11px;color:var(--tx2);background:var(--sf2);border-radius:var(--r2);padding:.55rem .85rem;margin-bottom:1rem;}
+.k-done-wait strong{color:var(--green);}
+.k-done-reset{width:100%;padding:.8rem;border-radius:var(--r2);border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s;}
+.k-done-reset:hover{background:var(--sf3);}
+
+/* ════════════════════════════════════════
+   보조장치 내부 UI
+════════════════════════════════════════ */
+.a-hdr{background:#110e05;border-bottom:3px solid var(--amber2);padding:.6rem .9rem;display:flex;align-items:center;justify-content:space-between;position:relative;flex-shrink:0;}
+.a-hdr::after{content:'';position:absolute;bottom:-7px;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,var(--amber) 0,var(--amber) 8px,#6b4a08 8px,#6b4a08 10px);pointer-events:none;}
+.a-hdr-title{font-family:'Courier Prime',monospace;font-size:11px;font-weight:700;color:var(--amber3);letter-spacing:.1em;}
+.a-hdr-badge{font-family:'Courier Prime',monospace;font-size:9px;color:var(--atx3);letter-spacing:.08em;border:1px solid var(--abd);padding:1px 6px;}
+
+.a-body{flex:1;padding:.85rem;display:flex;flex-direction:column;gap:.75rem;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--abd) transparent;}
+.a-body::-webkit-scrollbar{width:3px;}
+.a-body::-webkit-scrollbar-thumb{background:var(--abd);border-radius:2px;}
+
+.a-devinfo{background:var(--asf);border:2px solid var(--amber2);border-left:4px solid var(--amber);padding:.5rem .85rem;font-size:10px;color:var(--amber3);font-family:'Courier Prime',monospace;letter-spacing:.06em;text-align:center;}
+.a-sec-title{font-family:'Courier Prime',monospace;font-size:9px;color:var(--atx3);text-transform:uppercase;letter-spacing:.15em;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem;}
+.a-sec-title::before{content:'▶';font-size:7px;color:var(--amber);}
+.a-sec-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--amber2),transparent);}
+
+/* 식사 방법 */
+.a-eat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.a-eat-btn{background:radial-gradient(ellipse at 40% 30%,#2a1a08,#0f0c04);border:2px solid var(--abd);padding:.7rem .4rem;cursor:pointer;text-align:center;transition:all .15s;box-shadow:0 3px 0 #0a0805,inset 0 1px 0 rgba(200,184,96,.05);font-family:'Courier Prime',monospace;}
+.a-eat-btn:hover{border-color:var(--amber);}
+.a-eat-btn.on{border-color:var(--amber);background:radial-gradient(ellipse at 40% 30%,#3a2a10,#1a1208);box-shadow:0 3px 0 #0a0805,0 0 8px rgba(200,160,0,.12);}
+.a-eat-btn .eico{font-size:1.4rem;display:block;margin-bottom:.25rem;}
+.a-eat-btn .enm{font-size:11px;font-weight:700;color:var(--atx);}
+.a-eat-btn .edsc{font-size:9px;color:var(--atx3);margin-top:1px;}
+
+/* 메뉴 버튼 */
+.a-bgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.a-mbtn{background:radial-gradient(ellipse at 40% 30%,#2a2010,#0f0c04);border:3px solid var(--abd);padding:.75rem .3rem;cursor:pointer;text-align:center;transition:all .15s;position:relative;box-shadow:0 4px 0 #0a0805,inset 0 1px 0 rgba(200,184,96,.07);}
+.a-mbtn::after{content:'';position:absolute;top:2px;left:2px;right:2px;height:30%;background:linear-gradient(180deg,rgba(200,184,96,.04),transparent);pointer-events:none;}
+.a-mbtn:hover{border-color:var(--amber);transform:translateY(2px);box-shadow:0 2px 0 #0a0805;}
+.a-mbtn:active{transform:translateY(4px);box-shadow:0 0 0 #0a0805;}
+.a-mbtn.on{border-color:var(--amber);background:radial-gradient(ellipse at 40% 30%,#3a2a10,#1a1508);box-shadow:0 4px 0 #0a0805,0 0 10px rgba(200,160,0,.18);}
+.a-led{width:5px;height:5px;border-radius:50%;background:#1a1208;margin:0 auto 4px;border:1px solid var(--abd);transition:all .2s;}
+.a-mbtn.on .a-led{background:var(--amber3);box-shadow:0 0 5px var(--amber3);border-color:var(--amber);}
+.a-bem{font-size:1.4rem;display:block;margin-bottom:2px;position:relative;z-index:1;}
+.a-bnm{font-size:9px;font-weight:700;color:var(--atx2);font-family:'Courier Prime',monospace;position:relative;z-index:1;line-height:1.3;}
+.a-bpr{font-size:9px;color:var(--atx3);font-family:'Courier Prime',monospace;margin-top:1px;position:relative;z-index:1;}
+
+/* 다이얼 */
+.a-dsec{background:var(--asf);border:3px solid var(--abd);padding:.85rem;position:relative;}
+.a-dsec::before{content:'QUANTITY DIAL';position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:var(--asf);padding:0 7px;font-family:'Courier Prime',monospace;font-size:8px;color:var(--atx3);letter-spacing:.15em;}
+.a-dhdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;}
+.a-dttl{font-size:10px;color:var(--atx3);font-family:'Courier Prime',monospace;letter-spacing:.1em;}
+.a-ddisp{background:#05040a;border:2px solid var(--abd);padding:3px 12px;font-family:'Courier Prime',monospace;font-size:20px;color:var(--amber3);box-shadow:inset 0 2px 5px rgba(0,0,0,.7);min-width:46px;text-align:center;text-shadow:0 0 7px rgba(245,200,66,.45);}
+.a-dwrap{display:flex;align-items:center;justify-content:center;gap:1.5rem;}
+.a-dial{width:75px;height:75px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#3a2a10,#0f0c04);border:4px solid var(--abd2);box-shadow:0 5px 0 #0a0805,0 7px 14px rgba(0,0,0,.55),inset 0 1px 0 rgba(200,184,96,.07);cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;user-select:none;transition:all .15s;touch-action:manipulation;}
+.a-dial:hover{border-color:var(--amber);box-shadow:0 5px 0 #0a0805,0 0 10px rgba(200,160,0,.18);}
+.a-dial:active{transform:translateY(2px);box-shadow:0 2px 0 #0a0805;}
+.a-dial::before{content:'';position:absolute;inset:5px;border-radius:50%;border:1px dashed rgba(200,160,0,.13);}
+.a-dnotch{width:3px;height:15px;background:var(--amber3);border-radius:2px;position:absolute;top:7px;box-shadow:0 0 5px var(--amber3);}
+.a-darrs{display:flex;flex-direction:column;gap:5px;}
+.a-darr{width:34px;height:34px;border:2px solid var(--abd);background:radial-gradient(ellipse at 40% 30%,#2a2010,#0f0c04);color:var(--amber3);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Courier Prime',monospace;box-shadow:0 3px 0 #0a0805;transition:all .15s;touch-action:manipulation;}
+.a-darr:hover{border-color:var(--amber);box-shadow:0 3px 0 #0a0805,0 0 7px rgba(200,160,0,.13);}
+.a-darr:active{transform:translateY(2px);box-shadow:0 1px 0 #0a0805;}
+.a-dhint{font-size:9px;color:var(--atx4);text-align:center;font-family:'Courier Prime',monospace;}
+
+/* 담기 버튼 */
+.a-done-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.a-done-btn{padding:.8rem .4rem;border:3px solid var(--amber2);background:radial-gradient(ellipse at 50% 30%,#2a1a08,#120e04);color:var(--amber3);font-size:11px;font-weight:700;cursor:pointer;font-family:'Courier Prime',monospace;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 4px 0 #3a2808,inset 0 1px 0 rgba(200,184,96,.07);transition:all .15s;touch-action:manipulation;}
+.a-done-btn:not(:disabled):hover{border-color:var(--amber3);box-shadow:0 4px 0 #3a2808,0 0 10px rgba(200,160,0,.18);}
+.a-done-btn:not(:disabled):active{transform:translateY(3px);box-shadow:0 1px 0 #3a2808;}
+.a-done-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+/* ORDER LIST */
+.a-cart-box{background:var(--asf);border:2px solid var(--abd);padding:.75rem;position:relative;}
+.a-cart-box::before{content:'ORDER LIST';position:absolute;top:-8px;left:10px;background:var(--asf);padding:0 5px;font-family:'Courier Prime',monospace;font-size:8px;color:var(--atx3);letter-spacing:.15em;}
+.a-cart-item{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--atx2);font-family:'Courier Prime',monospace;padding:4px 0;border-bottom:1px dashed #2a2010;gap:.4rem;}
+.a-cart-item:last-child{border:none;}
+.a-ci-eat{font-size:9px;padding:1px 5px;border-radius:3px;}
+.a-ci-eat.in{background:rgba(58,138,58,.2);color:#7fff7f;}
+.a-ci-eat.out{background:rgba(200,160,0,.15);color:var(--amber3);}
+.a-ci-del{background:none;border:1px solid var(--ared);color:#e55;cursor:pointer;font-size:10px;padding:1px 5px;font-family:'Courier Prime',monospace;transition:all .15s;}
+.a-ci-del:hover{background:var(--ared);color:#fff;}
+.a-cart-empty{text-align:center;color:var(--atx4);font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.07em;padding:.4rem 0;}
+.a-cart-total{display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--amber3);font-family:'Courier Prime',monospace;padding-top:.5rem;margin-top:.35rem;border-top:2px solid var(--amber2);}
+
+/* 결제하기 */
+.a-pay-btn{width:100%;padding:.85rem;border:3px solid var(--agreen);background:radial-gradient(ellipse at 50% 30%,#1a3a1a,#0a1a0a);color:var(--agreentx);font-size:13px;font-weight:700;cursor:pointer;font-family:'Courier Prime',monospace;letter-spacing:.12em;text-transform:uppercase;box-shadow:0 4px 0 #0a2a0a,inset 0 1px 0 rgba(100,200,100,.07);transition:all .15s;touch-action:manipulation;}
+.a-pay-btn:not(:disabled):hover{border-color:#5a9a5a;box-shadow:0 4px 0 #0a2a0a,0 0 10px rgba(100,200,100,.18);}
+.a-pay-btn:not(:disabled):active{transform:translateY(3px);box-shadow:0 1px 0 #0a2a0a;}
+.a-pay-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+/* 보조장치 완료 오버레이 */
+#a-pg-done{display:none;position:fixed;inset:0;background:rgba(10,8,2,.95);align-items:center;justify-content:center;z-index:500;flex-direction:column;padding:1.5rem;}
+#a-pg-done.active{display:flex;}
+.a-done-card{background:var(--asf);border:3px solid var(--amber2);padding:1.75rem 1.5rem;max-width:320px;width:100%;box-shadow:0 8px 0 #0a0805,0 0 35px rgba(200,160,0,.12);}
+.a-done-title{font-family:'Courier Prime',monospace;font-size:9px;color:var(--atx3);letter-spacing:.2em;text-transform:uppercase;margin-bottom:.65rem;border-bottom:1px dashed var(--abd);padding-bottom:.4rem;text-align:center;}
+.a-done-check{font-size:2.5rem;margin-bottom:.4rem;text-align:center;}
+.a-done-ttl{font-family:'Courier Prime',monospace;font-size:16px;font-weight:700;color:var(--amber3);margin-bottom:.3rem;text-align:center;}
+.a-done-sub{font-size:11px;color:var(--atx3);margin-bottom:1rem;font-family:'Courier Prime',monospace;text-align:center;}
+.a-done-num-box{background:#0a0800;border:2px solid var(--amber2);padding:.85rem;margin-bottom:.85rem;text-align:center;}
+.a-done-num-lbl{font-family:'Courier Prime',monospace;font-size:8px;color:var(--atx3);letter-spacing:.15em;text-transform:uppercase;margin-bottom:.25rem;}
+.a-done-num{font-family:'Courier Prime',monospace;font-size:3rem;font-weight:700;color:var(--amber3);line-height:1;text-shadow:0 0 10px rgba(245,200,66,.35);}
+.a-done-items{background:#0a0800;padding:.65rem;margin-bottom:.75rem;text-align:left;}
+.a-done-item{display:flex;justify-content:space-between;font-size:10px;color:var(--atx2);font-family:'Courier Prime',monospace;padding:3px 0;border-bottom:1px dashed #2a2010;}
+.a-done-item:last-child{border:none;}
+.a-done-total-row{display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--amber3);font-family:'Courier Prime',monospace;margin-bottom:1rem;}
+.a-done-wait{font-size:10px;color:var(--atx3);font-family:'Courier Prime',monospace;margin-bottom:1rem;line-height:1.7;text-align:center;}
+.a-done-reset{width:100%;padding:.75rem;border:2px solid var(--abd);background:var(--asf2);color:var(--atx2);font-size:11px;font-weight:700;cursor:pointer;font-family:'Courier Prime',monospace;letter-spacing:.1em;text-transform:uppercase;box-shadow:0 3px 0 #0a0805;transition:all .15s;}
+.a-done-reset:hover{border-color:var(--amber);color:var(--amber3);}
+.a-done-reset:active{transform:translateY(2px);box-shadow:0 1px 0 #0a0805;}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--sf3);border-radius:2px;}
+</style>
+</head>
+<body>
+<!-- 상단 타이틀 -->
+<div id="topbar">
+  <span class="tb-sub">SIMULATION</span>
+  <span class="tb-sep">|</span>
+  <span class="tb-brand">테경카페</span>
+  <span class="tb-sep">|</span>
+  <span class="tb-sub">KIOSK + AUX DEVICE</span>
+</div>
+
+<!-- 무대 -->
+<div id="stage">
+
+  <!-- ══ 왼쪽: 키오스크 프레임 ══ -->
+  <div id="kiosk-frame">
+    <div id="sync-toast">🔗 보조장치에서 메뉴가 추가됐어요!</div>
+    <div class="kiosk-screen">
+
+      <!-- 바코드 오버레이 -->
+      <div class="barcode-overlay hidden" id="barcode-overlay">
+        <div class="barcode-card">
+          <div class="bc-title" id="bc-title">바코드를 스캔해주세요</div>
+          <div class="bc-sub" id="bc-sub">앱을 열고 바코드를 단말기에 대주세요</div>
+          <div class="bc-scanner"><div class="bc-line"></div><div class="bc-bars"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div>
+          <div class="bc-timer" id="bc-timer">유효시간 <span id="bc-sec">30</span>초</div>
+          <button class="btn-main btn-ghost" style="margin-top:.75rem;border-radius:8px;" onclick="cancelBarcode()">취소</button>
+        </div>
+      </div>
+
+      <!-- 1. 대기 -->
+      <div class="page active" id="pg-idle">
+        <div class="idle-inner">
+          <div class="idle-logo">☕</div>
+          <div class="idle-brand">테경<span>카페</span></div>
+          <div class="idle-sub">TEKYUNG CAFÉ</div>
+          <div class="idle-eat-title">먼저 식사 방법을 선택해주세요</div>
+          <div class="idle-eat-btns">
+            <div class="k-eat-btn" id="eat-in" onclick="selectEat('in')"><div class="eico">🪑</div><div class="enm">매장 식사</div><div class="edsc">For Here</div></div>
+            <div class="k-eat-btn" id="eat-out" onclick="selectEat('out')"><div class="eico">🛍️</div><div class="enm">포장</div><div class="edsc">To Go</div></div>
+          </div>
+          <div class="idle-hint">▼ 식사 방법 선택 후 메뉴로 이동합니다</div>
+        </div>
+      </div>
+
+      <!-- 2. 메뉴 -->
+      <div class="page" id="pg-menu">
+        <div class="kiosk-hdr">
+          <div class="kiosk-hdr-logo">테경<span>카페</span></div>
+          <div class="kiosk-hdr-eat" id="hdr-eat-badge">매장</div>
+          <div class="kiosk-hdr-right">
+            <button class="btn-main btn-ghost kbtn-sm" onclick="resetAll()">🏠</button>
+            <button class="cart-fab hidden" id="cart-fab" onclick="goPage('pg-cart')">🛒 <span class="cnt" id="cart-cnt">0</span></button>
+          </div>
+        </div>
+        <div class="cat-tabs" id="cat-tabs"></div>
+        <div class="menu-scroll"><div class="menu-grid" id="menu-grid"></div></div>
+      </div>
+
+      <!-- 3. 옵션 -->
+      <div class="page" id="pg-option">
+        <div class="kiosk-hdr">
+          <button class="btn-main btn-ghost kbtn-sm" onclick="goPage('pg-menu')">← 뒤로</button>
+          <div class="kiosk-hdr-logo" style="margin-left:.4rem;">테경<span style="color:var(--accent);">카페</span></div>
+          <div class="kiosk-hdr-right">
+            <button class="cart-fab hidden" id="cart-fab2" onclick="goPage('pg-cart')">🛒 <span class="cnt" id="cart-cnt2">0</span></button>
+          </div>
+        </div>
+        <div class="opt-scroll">
+          <div class="opt-preview" id="opt-preview"></div>
+          <div id="opt-groups"></div>
+          <div class="qty-row" style="margin-bottom:.65rem;">
+            <button class="qty-btn" onclick="changeQty(-1)">−</button>
+            <div class="qty-num" id="opt-qty">1</div>
+            <button class="qty-btn" onclick="changeQty(1)">+</button>
+          </div>
+        </div>
+        <div class="bottom-bar">
+          <button class="btn-main btn-ghost" onclick="goPage('pg-menu')">취소</button>
+          <button class="btn-main btn-accent" onclick="addToCart()">장바구니에 담기</button>
+        </div>
+      </div>
+
+      <!-- 4. 장바구니 -->
+      <div class="page" id="pg-cart">
+        <div class="kiosk-hdr">
+          <button class="btn-main btn-ghost kbtn-sm" onclick="goPage('pg-menu')">← 계속</button>
+          <div class="kiosk-hdr-logo" style="margin-left:.4rem;">테경<span style="color:var(--accent);">카페</span></div>
+        </div>
+        <div class="cart-scroll" id="cart-scroll"></div>
+        <div class="bottom-bar">
+          <button class="btn-main btn-ghost" onclick="goPage('pg-menu')">+ 추가</button>
+          <button class="btn-main btn-accent" id="cart-pay-btn" onclick="goPayment()">결제하기 →</button>
+        </div>
+      </div>
+
+      <!-- 5. 결제 -->
+      <div class="page" id="pg-pay">
+        <div class="kiosk-hdr">
+          <button class="btn-main btn-ghost kbtn-sm" onclick="goPage('pg-cart')">← 뒤로</button>
+          <div class="kiosk-hdr-logo" style="margin-left:.4rem;">테경<span style="color:var(--accent);">카페</span></div>
+        </div>
+        <div class="pay-scroll">
+          <div class="pay-summary" id="pay-summary"></div>
+          <div class="pay-section">
+            <div class="pay-sec-title">할인 수단</div>
+            <div class="disc-tabs">
+              <button class="disc-tab on" onclick="selDiscTab(this,'telecom')">📡 통신사</button>
+              <button class="disc-tab" onclick="selDiscTab(this,'membership')">🎁 멤버십</button>
+              <button class="disc-tab" onclick="selDiscTab(this,'card')">💳 제휴카드</button>
+              <button class="disc-tab" onclick="selDiscTab(this,'none')">🚫 없음</button>
+            </div>
+            <div class="disc-panel" id="disc-telecom">
+              <div class="disc-grid">
+                <div class="disc-card" onclick="selDisc(this,'SKT','telecom')"><div class="dc-logo skt">T</div><div class="dc-name">SKT</div><div class="dc-desc">T멤버십<br><span class="dc-rate">최대 20%↓</span></div></div>
+                <div class="disc-card" onclick="selDisc(this,'KT','telecom')"><div class="dc-logo kt">kt</div><div class="dc-name">KT</div><div class="dc-desc">KT멤버십<br><span class="dc-rate">최대 20%↓</span></div></div>
+                <div class="disc-card" onclick="selDisc(this,'LGU+','telecom')"><div class="dc-logo lgu">U+</div><div class="dc-name">LGU+</div><div class="dc-desc">U+멤버십<br><span class="dc-rate">최대 20%↓</span></div></div>
+              </div>
+              <div class="disc-notice">📱 선택 시 통신사 앱 바코드를 스캔합니다</div>
+            </div>
+            <div class="disc-panel hidden" id="disc-membership">
+              <div class="disc-grid">
+                <div class="disc-card" onclick="selDisc(this,'CJ ONE','membership')"><div class="dc-logo cj">CJ</div><div class="dc-name">CJ ONE</div><div class="dc-desc">포인트<br><span class="dc-rate">1% 적립</span></div></div>
+                <div class="disc-card" onclick="selDisc(this,'OK캐쉬백','membership')"><div class="dc-logo ok">OK</div><div class="dc-name">OK캐쉬백</div><div class="dc-desc">포인트<br><span class="dc-rate">0.5% 적립</span></div></div>
+                <div class="disc-card" onclick="selDisc(this,'해피포인트','membership')"><div class="dc-logo hp">H</div><div class="dc-name">해피포인트</div><div class="dc-desc">포인트<br><span class="dc-rate">1% 적립</span></div></div>
+              </div>
+              <div class="disc-notice">🎁 선택 시 멤버십 바코드를 스캔합니다</div>
+            </div>
+            <div class="disc-panel hidden" id="disc-card">
+              <div class="disc-grid">
+                <div class="disc-card" onclick="selDisc(this,'신한카드','card')"><div class="dc-logo shinhan">신한</div><div class="dc-name">신한카드</div><div class="dc-desc"><span class="dc-rate">5~10% 할인</span></div></div>
+                <div class="disc-card" onclick="selDisc(this,'KB국민','card')"><div class="dc-logo kb">KB</div><div class="dc-name">KB국민</div><div class="dc-desc"><span class="dc-rate">5% 할인</span></div></div>
+                <div class="disc-card" onclick="selDisc(this,'현대카드','card')"><div class="dc-logo hyundai">H</div><div class="dc-name">현대카드</div><div class="dc-desc"><span class="dc-rate">1% 적립</span></div></div>
+                <div class="disc-card" onclick="selDisc(this,'삼성카드','card')"><div class="dc-logo samsung">S</div><div class="dc-name">삼성카드</div><div class="dc-desc"><span class="dc-rate">5% 할인</span></div></div>
+                <div class="disc-card" onclick="selDisc(this,'롯데카드','card')"><div class="dc-logo lotte">L</div><div class="dc-name">롯데카드</div><div class="dc-desc"><span class="dc-rate">0.7% 적립</span></div></div>
+                <div class="disc-card" onclick="selDisc(this,'하나카드','card')"><div class="dc-logo hana">1Q</div><div class="dc-name">하나카드</div><div class="dc-desc"><span class="dc-rate">3% 할인</span></div></div>
+              </div>
+              <div class="disc-notice">💳 해당 카드로 결제 시 자동 적용됩니다</div>
+            </div>
+            <div class="disc-panel hidden" id="disc-none">
+              <div class="disc-none-box"><div style="font-size:1.75rem;margin-bottom:.4rem;">🚫</div><div style="font-size:13px;font-weight:600;margin-bottom:.25rem;">할인 없이 정가 결제</div></div>
+            </div>
+            <div class="disc-selected hidden" id="disc-selected"></div>
+          </div>
+          <div class="pay-section" id="pay-method-sec">
+            <div class="pay-sec-title">결제 수단</div>
+            <div class="pay-grid">
+              <div class="pay-card" onclick="selMethod(this,'카드결제')"><span class="pci">💳</span>카드결제</div>
+              <div class="pay-card" onclick="selMethod(this,'앱카드')"><span class="pci">📲</span>앱카드</div>
+              <div class="pay-card" onclick="selMethod(this,'카카오페이')"><span class="pci">💛</span>카카오페이</div>
+              <div class="pay-card" onclick="selMethod(this,'네이버페이')"><span class="pci">💚</span>네이버페이</div>
+              <div class="pay-card" onclick="selMethod(this,'삼성페이')"><span class="pci">🔵</span>삼성페이</div>
+              <div class="pay-card" onclick="selMethod(this,'토스페이')"><span class="pci">💙</span>토스페이</div>
+              <div class="pay-card" onclick="selMethod(this,'애플페이')"><span class="pci">🍎</span>애플페이</div>
+              <div class="pay-card" onclick="selMethod(this,'페이코')"><span class="pci">🟠</span>페이코</div>
+              <div class="pay-card" onclick="selMethod(this,'현금')"><span class="pci">💵</span>현금</div>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-bar">
+          <button class="btn-main btn-accent" id="pay-confirm-btn" disabled onclick="startPayProcess()">결제 완료</button>
+        </div>
+      </div>
+
+      <!-- 5-2. 결제 처리 -->
+      <div class="page" id="pg-processing">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:1rem;">
+          <div class="proc-card" id="proc-card"></div>
+        </div>
+      </div>
+
+      <!-- 6. 스탬프 -->
+      <div class="page" id="pg-stamp">
+        <div class="stamp-card">
+          <div class="stamp-ico">⭐</div>
+          <div class="stamp-ttl">스탬프 적립</div>
+          <div class="stamp-sub">휴대폰 번호를 입력하시면 스탬프가 적립됩니다.<br><small style="color:var(--tx3);">10개 적립 시 무료 음료 쿠폰</small></div>
+          <div class="phone-display" id="phone-display">
+            <span id="phone-seg0" class="pseg filled">010</span><span class="pdash">-</span>
+            <span id="phone-seg1" class="pseg">XXXX</span><span class="pdash">-</span>
+            <span id="phone-seg2" class="pseg">XXXX</span>
+          </div>
+          <div class="keypad">
+            <button class="kp-btn" onclick="kpInput('1')">1</button>
+            <button class="kp-btn" onclick="kpInput('2')">2<span>ABC</span></button>
+            <button class="kp-btn" onclick="kpInput('3')">3<span>DEF</span></button>
+            <button class="kp-btn" onclick="kpInput('4')">4<span>GHI</span></button>
+            <button class="kp-btn" onclick="kpInput('5')">5<span>JKL</span></button>
+            <button class="kp-btn" onclick="kpInput('6')">6<span>MNO</span></button>
+            <button class="kp-btn" onclick="kpInput('7')">7<span>PQRS</span></button>
+            <button class="kp-btn" onclick="kpInput('8')">8<span>TUV</span></button>
+            <button class="kp-btn" onclick="kpInput('9')">9<span>WXYZ</span></button>
+            <button class="kp-btn kp-empty"></button>
+            <button class="kp-btn" onclick="kpInput('0')">0</button>
+            <button class="kp-btn kp-del" onclick="kpDelete()">⌫</button>
+          </div>
+          <div class="stamp-btns">
+            <button class="btn-main btn-ghost" onclick="finishOrder()">건너뛰기</button>
+            <button class="btn-main btn-accent" onclick="finishOrder()">적립하기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. 완료 -->
+      <div class="page" id="pg-done">
+        <div class="k-done-card">
+          <div class="k-done-check">✅</div>
+          <div class="k-done-ttl">주문이 완료되었습니다!</div>
+          <div class="k-done-sub">잠시만 기다려 주세요</div>
+          <div class="k-order-box"><div class="k-order-lbl">주문 번호</div><div class="k-order-num" id="order-num">—</div></div>
+          <div class="k-done-items" id="done-items"></div>
+          <div class="k-done-total" id="done-total"></div>
+          <div class="k-done-wait"><strong>🔔 조리 중입니다.</strong> 번호가 호출되면 카운터에서 받아가세요.</div>
+          <button class="k-done-reset" onclick="resetAll()">처음으로 돌아가기</button>
+        </div>
+      </div>
+
+    </div><!-- kiosk-screen -->
+  </div><!-- kiosk-frame -->
+
+  <!-- ══ USB 케이블 연결 ══ -->
+  <div id="divider">
+    <div class="usb-plug top"></div>
+    <div class="usb-cable"></div>
+    <div class="usb-label">USB</div>
+    <div class="usb-cable"></div>
+    <div class="usb-plug bot"></div>
+  </div>
+
+  <!-- ══ 오른쪽: 보조장치 프레임 ══ -->
+  <div id="device-frame">
+    <div class="a-hdr">
+      <div class="a-hdr-title">[ ANALOG ORDER ]</div>
+      <div class="a-hdr-badge">보조 장치</div>
+    </div>
+    <div class="a-body">
+      <div class="a-devinfo">▶ 식사방법 → 메뉴 → 다이얼 → 담기 → 결제</div>
+      <div>
+        <div class="a-sec-title">EAT TYPE</div>
+        <div class="a-eat-grid">
+          <div class="a-eat-btn" id="a-eat-in" onclick="aSelEat('in')"><span class="eico">🪑</span><div class="enm">매장</div><div class="edsc">For Here</div></div>
+          <div class="a-eat-btn" id="a-eat-out" onclick="aSelEat('out')"><span class="eico">🛍️</span><div class="enm">포장</div><div class="edsc">To Go</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="a-sec-title">MENU BUTTONS</div>
+        <div class="a-bgrid" id="a-bgrid"></div>
+      </div>
+      <div class="a-dsec">
+        <div class="a-dhdr"><div class="a-dttl">COUNT</div><div class="a-ddisp" id="a-qty-disp">1</div></div>
+        <div class="a-dwrap">
+          <div class="a-darrs">
+            <button class="a-darr" onclick="aChangeQty(1)">▲</button>
+            <button class="a-darr" onclick="aChangeQty(-1)">▼</button>
+          </div>
+          <div class="a-dial" onclick="aRotateDial()"><div class="a-dnotch" id="a-dnotch"></div></div>
+          <div class="a-dhint">CLICK<br>or ▲▼</div>
+        </div>
+      </div>
+      <div class="a-done-grid">
+        <button class="a-done-btn" id="a-btn-in" disabled onclick="aAddToCart('in')">[ 🪑 매장 ]</button>
+        <button class="a-done-btn" id="a-btn-out" disabled onclick="aAddToCart('out')">[ 🛍️ 포장 ]</button>
+      </div>
+      <div class="a-cart-box" id="a-cart-box">
+        <div id="a-cart-list"><div class="a-cart-empty">— 담긴 메뉴가 없습니다 —</div></div>
+        <div class="a-cart-total hidden" id="a-cart-total"></div>
+      </div>
+      <button class="a-pay-btn" id="a-pay-btn" disabled onclick="aFinishOrder()">[ 결제하기 ]</button>
+    </div>
+  </div>
+
+</div><!-- stage -->
+
+<!-- 보조장치 완료 오버레이 -->
+<div id="a-pg-done">
+  <div class="a-done-card">
+    <div class="a-done-title">✦ ORDER COMPLETE ✦</div>
+    <div class="a-done-check">✅</div>
+    <div class="a-done-ttl">주문 완료!</div>
+    <div class="a-done-sub">잠시만 기다려 주세요</div>
+    <div class="a-done-num-box"><div class="a-done-num-lbl">주문 번호</div><div class="a-done-num" id="a-done-num">—</div></div>
+    <div class="a-done-items" id="a-done-items"></div>
+    <div class="a-done-total-row" id="a-done-total"></div>
+    <div class="a-done-wait">🔔 조리 중입니다.<br>번호가 호출되면 카운터에서 받아가세요.</div>
+    <button class="a-done-reset" onclick="aResetAll()">[ 처음으로 돌아가기 ]</button>
+  </div>
+</div>
+
+<script>
+/* ════ 키오스크 JS ════ */
+const CATS=['전체','커피','콜드브루','티/논커피','에이드','스무디&프라푸치노','디저트&베이커리'];
+const MENUS=[
+  {id:1,cat:'커피',em:'☕',nm:'아메리카노',pr:4500},{id:2,cat:'커피',em:'🍶',nm:'카페라떼',pr:5000},
+  {id:3,cat:'커피',em:'🌿',nm:'말차라떼',pr:5500},{id:4,cat:'커피',em:'🌼☕',nm:'바닐라라떼',pr:5500},
+  {id:5,cat:'커피',em:'🍯',nm:'카라멜마끼아또',pr:5500},{id:6,cat:'커피',em:'💨',nm:'카푸치노',pr:5000},
+  {id:7,cat:'커피',em:'🍯',nm:'카라멜라떼',pr:5500},{id:8,cat:'커피',em:'🫐',nm:'블루베리라떼',pr:6000},
+  {id:9,cat:'커피',em:'🌰',nm:'헤이즐넛라떼',pr:5500},{id:10,cat:'커피',em:'🍫',nm:'모카라떼',pr:5500},
+  {id:11,cat:'콜드브루',em:'🧊☕',nm:'콜드브루',pr:5000},{id:12,cat:'콜드브루',em:'🧊🍶',nm:'콜드브루라떼',pr:5500},
+  {id:13,cat:'콜드브루',em:'🧊🌼',nm:'바닐라콜드브루',pr:6000},{id:14,cat:'콜드브루',em:'💨🧊',nm:'질소콜드브루',pr:6000},
+  {id:15,cat:'콜드브루',em:'🍯',nm:'카라멜콜드브루',pr:6000},
+  {id:16,cat:'티/논커피',em:'🍵',nm:'말차라떼(논커피)',pr:5500},{id:17,cat:'티/논커피',em:'🍑',nm:'복숭아아이스티',pr:5000},
+  {id:18,cat:'티/논커피',em:'🌼',nm:'캐모마일티',pr:4000},{id:19,cat:'티/논커피',em:'🍂',nm:'루이보스티',pr:4000},
+  {id:20,cat:'티/논커피',em:'🫚',nm:'레몬진저티',pr:4500},{id:21,cat:'티/논커피',em:'🧋',nm:'흑당버블티',pr:6500},
+  {id:22,cat:'티/논커피',em:'🫐',nm:'블루베리요거트',pr:6000},{id:23,cat:'티/논커피',em:'🥥',nm:'코코넛라떼',pr:6000},
+  {id:24,cat:'에이드',em:'🍋',nm:'레몬에이드',pr:5500},{id:25,cat:'에이드',em:'🍓',nm:'딸기에이드',pr:6000},
+  {id:26,cat:'에이드',em:'🍊',nm:'자몽에이드',pr:5500},{id:27,cat:'에이드',em:'🍇',nm:'청포도에이드',pr:6000},
+  {id:28,cat:'에이드',em:'🥝',nm:'키위에이드',pr:6000},{id:29,cat:'에이드',em:'🍑',nm:'복숭아에이드',pr:6000},
+  {id:30,cat:'에이드',em:'🫐',nm:'블루베리에이드',pr:6000},{id:31,cat:'에이드',em:'🍈',nm:'유자에이드',pr:5500},
+  {id:32,cat:'스무디&프라푸치노',em:'🍓',nm:'딸기스무디',pr:6500},{id:33,cat:'스무디&프라푸치노',em:'🥭',nm:'망고스무디',pr:6500},
+  {id:34,cat:'스무디&프라푸치노',em:'🍌',nm:'바나나스무디',pr:6000},{id:35,cat:'스무디&프라푸치노',em:'🍫',nm:'초코프라푸치노',pr:6500},
+  {id:36,cat:'스무디&프라푸치노',em:'☕',nm:'커피프라푸치노',pr:6500},{id:37,cat:'스무디&프라푸치노',em:'🌿',nm:'말차프라푸치노',pr:7000},
+  {id:38,cat:'스무디&프라푸치노',em:'🍯',nm:'카라멜프라푸치노',pr:7000},
+  {id:39,cat:'디저트&베이커리',em:'🧇',nm:'크로플',pr:4500},{id:40,cat:'디저트&베이커리',em:'🍰',nm:'치즈케이크',pr:6500},
+  {id:41,cat:'디저트&베이커리',em:'🍩',nm:'도넛',pr:3500},{id:42,cat:'디저트&베이커리',em:'🥐',nm:'크루아상',pr:4000},
+  {id:43,cat:'디저트&베이커리',em:'🥖',nm:'소금빵',pr:3500},{id:44,cat:'디저트&베이커리',em:'🍰',nm:'티라미수',pr:7000},
+  {id:45,cat:'디저트&베이커리',em:'🍪',nm:'초코칩쿠키',pr:3000},{id:46,cat:'디저트&베이커리',em:'🫓',nm:'스콘',pr:3500},
+  {id:47,cat:'디저트&베이커리',em:'🧇',nm:'와플',pr:5500},{id:48,cat:'디저트&베이커리',em:'🍮',nm:'크렘브륄레',pr:6500},
+];
+const OPTS=[
+  {key:'shot',ttl:'샷 추가',list:['기본','1샷 추가(+500원)','2샷 추가(+1,000원)']},
+  {key:'syrup',ttl:'시럽 선택',list:['기본','바닐라(+300원)','헤이즐넛(+300원)','카라멜(+300원)','없음']},
+  {key:'pearl',ttl:'펄 추가',list:['없음','타피오카 펄(+700원)','화이트 펄(+700원)']},
+  {key:'temp',ttl:'온도',list:['ICE','HOT','연하게(ICE)']},
+  {key:'size',ttl:'사이즈',list:['레귤러','라지(+500원)']},
+  {key:'cup',ttl:'컵 선택',list:['일반 컵','텀블러(-300원)','대용량 컵(+500원)']},
+];
+
+let eat='',cart=[],curItem=null,curOpts={},curQty=1,curCat='전체';
+let disc='',discType='',method='',orderNum=0,bcTimer=null;
+let phoneDigits='';
+const $=id=>document.getElementById(id);
+
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  $(id).classList.add('active');
+  if(id==='pg-cart')renderCart();
+  if(id==='pg-stamp')resetPhoneDisplay();
+}
+function selectEat(t){
+  eat=t;
+  document.querySelectorAll('.k-eat-btn').forEach(b=>b.classList.remove('selected'));
+  $('eat-'+t).classList.add('selected');
+  setTimeout(()=>{initMenu();goPage('pg-menu');},280);
+}
+function initMenu(){
+  $('hdr-eat-badge').textContent=eat==='in'?'🪑 매장':'🛍️ 포장';
+  renderCatTabs();renderMenuGrid();updateCartFab();
+}
+function renderCatTabs(){
+  $('cat-tabs').innerHTML=CATS.map(c=>`<button class="cat-tab${curCat===c?' on':''}" onclick="selCat('${c}')">${c}</button>`).join('');
+}
+function selCat(c){curCat=c;renderCatTabs();renderMenuGrid();}
+function renderMenuGrid(){
+  const list=curCat==='전체'?MENUS:MENUS.filter(m=>m.cat===curCat);
+  $('menu-grid').innerHTML=list.map(m=>`<div class="menu-card" onclick="openOption(${m.id})"><div class="mc-em">${m.em}</div><div class="mc-nm">${m.nm}</div><div class="mc-pr">${m.pr.toLocaleString()}원</div><div class="mc-cat">${m.cat}</div></div>`).join('');
+}
+function updateCartFab(){
+  const tot=cart.reduce((s,c)=>s+c.qty,0);
+  ['cart-fab','cart-fab2'].forEach(id=>{const el=$(id);if(!el)return;tot>0?el.classList.remove('hidden'):el.classList.add('hidden');});
+  $('cart-cnt').textContent=tot;const e2=$('cart-cnt2');if(e2)e2.textContent=tot;
+}
+function openOption(id){
+  curItem=MENUS.find(m=>m.id===id);curQty=1;curOpts={};
+  OPTS.forEach(g=>{curOpts[g.key]=g.list[0];});
+  $('opt-qty').textContent=1;
+  $('opt-preview').innerHTML=`<div class="opt-prev-em">${curItem.em}</div><div><div class="opt-prev-nm">${curItem.nm}</div><div class="opt-prev-pr">${curItem.pr.toLocaleString()}원</div></div>`;
+  $('opt-groups').innerHTML=OPTS.map(g=>`<div class="opt-section"><div class="opt-sec-title">${g.ttl}</div><div class="opt-chips">${g.list.map((o,i)=>`<span class="opt-chip${i===0?' on':''}" onclick="selOpt(this,'${g.key}','${o.replace(/'/g,"\\'")}')">${o}</span>`).join('')}</div></div>`).join('');
+  goPage('pg-option');
+}
+function selOpt(el,key,val){curOpts[key]=val;el.closest('.opt-chips').querySelectorAll('.opt-chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');}
+function changeQty(d){curQty=Math.max(1,Math.min(10,curQty+d));$('opt-qty').textContent=curQty;}
+function calcExtra(opts){let e=0;Object.values(opts).forEach(v=>{const p=v.match(/\+([0-9,]+)원/);if(p)e+=parseInt(p[1].replace(',',''));const m=v.match(/-([0-9,]+)원/);if(m)e-=parseInt(m[1].replace(',',''));});return e;}
+function addToCart(){
+  const extra=calcExtra(curOpts),unit=curItem.pr+extra,key=curItem.id+JSON.stringify(curOpts);
+  const ex=cart.find(c=>c.key===key);if(ex)ex.qty+=curQty;else cart.push({key,item:curItem,qty:curQty,opts:{...curOpts},extra,unit});
+  updateCartFab();goPage('pg-menu');
+}
+function renderCart(){
+  const el=$('cart-scroll');
+  if(!cart.length){el.innerHTML=`<div class="k-cart-empty"><div class="cei">🛒</div><div>장바구니가 비어있습니다</div></div>`;$('cart-pay-btn').disabled=true;return;}
+  $('cart-pay-btn').disabled=false;
+  const tot=cart.reduce((s,c)=>s+c.unit*c.qty,0);
+  el.innerHTML=cart.map((c,i)=>{
+    const optStr=Object.values(c.opts).filter(v=>v!=='기본'&&v!=='없음'&&v!=='ICE'&&v!=='일반 컵'&&v!=='레귤러').join(', ')||'기본';
+    const eatLbl=eat==='in'?'매장':'포장';
+    return`<div class="k-cart-item"><div class="ci-em">${c.item.em}</div><div class="ci-info"><div class="ci-nm">${c.item.nm}<span class="ci-eat ${eat}">${eatLbl}</span></div><div class="ci-opts">${optStr}</div></div><div class="ci-right"><div class="ci-price">${(c.unit*c.qty).toLocaleString()}원</div><div class="ci-qty-row"><button class="ci-qbtn" onclick="changeCartQty(${i},-1)">−</button><div class="ci-qnum">${c.qty}</div><button class="ci-qbtn" onclick="changeCartQty(${i},1)">+</button><button class="ci-del" onclick="delCartItem(${i})">✕</button></div></div></div>`;
+  }).join('')+`<div class="cart-summary"><div class="cs-row"><span>소계 (${cart.reduce((s,c)=>s+c.qty,0)}잔)</span><span class="amt">${tot.toLocaleString()}원</span></div><div class="cs-row total"><span>합계</span><span class="amt">${tot.toLocaleString()}원</span></div></div>`;
+}
+function changeCartQty(i,d){cart[i].qty=Math.max(1,cart[i].qty+d);updateCartFab();renderCart();}
+function delCartItem(i){cart.splice(i,1);updateCartFab();renderCart();}
+function goPayment(){
+  if(!cart.length)return;disc='';discType='';method='';
+  document.querySelectorAll('#pg-pay .pay-card').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('.disc-card').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('.disc-tab').forEach((t,i)=>t.classList.toggle('on',i===0));
+  document.querySelectorAll('.disc-panel').forEach((p,i)=>p.classList.toggle('hidden',i!==0));
+  $('disc-selected').classList.add('hidden');$('pay-confirm-btn').disabled=true;
+  renderPaySummary();goPage('pg-pay');
+}
+function renderPaySummary(){
+  const tot=cart.reduce((s,c)=>s+c.unit*c.qty,0),qty=cart.reduce((s,c)=>s+c.qty,0);
+  $('pay-summary').innerHTML=`<div class="pay-sum-row lbl"><span>식사 방법</span><span class="val">${eat==='in'?'🪑 매장 식사':'🛍️ 포장'}</span></div><div class="pay-sum-row lbl"><span>주문 수량</span><span class="val">${qty}잔</span></div><div class="pay-sum-row"><span>결제 금액</span><span class="val">${tot.toLocaleString()}원</span></div>`;
+}
+function selDiscTab(el,type){
+  document.querySelectorAll('.disc-tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');
+  document.querySelectorAll('.disc-panel').forEach(p=>p.classList.add('hidden'));$('disc-'+type).classList.remove('hidden');
+  document.querySelectorAll('.disc-card').forEach(c=>c.classList.remove('on'));disc='';discType=type;
+  updateDiscSelected();
+  if(type==='none'){disc='없음';discType='none';updateDiscSelected();}
+}
+function selDisc(el,val,type){
+  if(el.classList.contains('on')){el.classList.remove('on');disc='';discType='';updateDiscSelected();return;}
+  document.querySelectorAll('.disc-card').forEach(c=>c.classList.remove('on'));el.classList.add('on');disc=val;discType=type;
+  if(type==='telecom'||type==='membership')showBarcode(val,type);else updateDiscSelected();
+}
+function showBarcode(val,type){
+  const isTelecom=type==='telecom';
+  $('bc-title').textContent=isTelecom?`${val} 멤버십 바코드`:`${val} 바코드`;
+  $('bc-sub').textContent=isTelecom?`${val} 앱 > 멤버십 바코드를 단말기에 대주세요`:`${val} 앱의 바코드를 단말기에 대주세요`;
+  $('bc-sec').textContent='30';$('barcode-overlay').classList.remove('hidden');
+  let sec=30;bcTimer=setInterval(()=>{sec--;const el=$('bc-sec');if(el)el.textContent=sec;if(sec<=0){clearInterval(bcTimer);completeScan();}},1000);
+  setTimeout(()=>{clearInterval(bcTimer);completeScan();},3000);
+}
+function completeScan(){$('barcode-overlay').classList.add('hidden');updateDiscSelected();}
+function cancelBarcode(){clearInterval(bcTimer);$('barcode-overlay').classList.add('hidden');document.querySelectorAll('.disc-card').forEach(c=>c.classList.remove('on'));disc='';discType='';updateDiscSelected();}
+function updateDiscSelected(){
+  const el=$('disc-selected');
+  if(!disc||disc==='없음'){el.classList.add('hidden');}
+  else{el.classList.remove('hidden');const lbl={telecom:'통신사 할인',membership:'멤버십 적립',card:'제휴카드 할인'}[discType]||'';el.innerHTML=`<span>✅ ${disc} ${lbl} 적용</span><button onclick="clearDisc()">취소</button>`;}
+  renderPaySummary();
+}
+function clearDisc(){disc='';discType='';document.querySelectorAll('.disc-card').forEach(c=>c.classList.remove('on'));updateDiscSelected();}
+function selMethod(el,val){method=val;document.querySelectorAll('#pay-method-sec .pay-card').forEach(c=>c.classList.remove('on'));el.classList.add('on');$('pay-confirm-btn').disabled=false;}
+
+function startPayProcess(){
+  goPage('pg-processing');
+  const tot=cart.reduce((s,c)=>s+c.unit*c.qty,0);
+  const isCard=['카드결제','앱카드'].includes(method);
+  const isPay=['카카오페이','네이버페이','삼성페이','토스페이','애플페이','페이코'].includes(method);
+  if(isCard)runCardFlow(tot);else if(isPay)runQrFlow(tot);else runCashFlow(tot);
+}
+function setProc(html){const c=$('proc-card');c.style.animation='none';c.offsetHeight;c.style.animation='fadeIn .3s ease';c.innerHTML=html;}
+function amtBox(tot){return`<div class="proc-amount">${tot.toLocaleString()}원</div>`;}
+function runCardFlow(tot){
+  setProc(`<span class="proc-icon">💳</span><div class="proc-title">카드를 꽂아주세요</div><div class="proc-sub">단말기에 카드를 삽입해주세요</div>${amtBox(tot)}<div class="card-slot"><div class="card-anim"></div><div class="card-slot-label">▼ 카드 삽입</div></div><div style="font-size:10px;color:var(--tx3);">카드를 꽂으면 자동으로 진행됩니다</div>`);
+  setTimeout(()=>{
+    setProc(`<span class="proc-icon">⏳</span><div class="proc-title">결제 처리 중...</div><div class="proc-sub">카드사에 승인을 요청하고 있습니다</div>${amtBox(tot)}<div class="proc-bar-wrap"><div class="proc-bar" id="proc-bar"></div></div><div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> 카드 인식 완료</div><div class="proc-step active"><span class="si">🔄</span> 카드사 승인 요청 중...</div></div>`);
+    let pct=0;const iv=setInterval(()=>{pct+=2;const b=$('proc-bar');if(b)b.style.width=pct+'%';if(pct>=100)clearInterval(iv);},40);
+    setTimeout(()=>{setProc(`<span class="proc-success">✅</span><div class="proc-title">결제 승인 완료!</div><div class="proc-sub">${method}로 결제되었습니다</div>${amtBox(tot)}<div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> 카드 인식 완료</div><div class="proc-step done"><span class="si">✅</span> 카드사 승인 완료</div></div>`);setTimeout(()=>goPage('pg-stamp'),1800);},2500);
+  },2500);
+}
+function runQrFlow(tot){
+  const icons={'카카오페이':'💛','네이버페이':'💚','삼성페이':'🔵','토스페이':'💙','애플페이':'🍎','페이코':'🟠'};
+  const ico=icons[method]||'📱';
+  const qrC=Array.from({length:49},(_,i)=>[0,1,2,3,4,5,6,42,43,44,45,46,47,48,7,14,21,28,35,10,11,12,17,18,20,23,25,31,36,37,38].includes(i%49)?'#f2f2f2':'#1a1a1a');
+  setProc(`<span class="proc-icon">${ico}</span><div class="proc-title">${method} 결제</div><div class="proc-sub">QR코드를 스캔하거나 앱을 실행해주세요</div>${amtBox(tot)}<div class="qr-box">${qrC.map(c=>`<div style="background:${c}"></div>`).join('')}</div><div style="font-size:10px;color:var(--tx3);">유효시간 <span id="qr-timer" style="color:var(--accent);font-family:'DM Mono',monospace;">03</span>초</div>`);
+  let sec=3;const qi=setInterval(()=>{sec--;const el=$('qr-timer');if(el)el.textContent=`0${sec}`;if(sec<=0)clearInterval(qi);},1000);
+  setTimeout(()=>{
+    setProc(`<span class="proc-icon">⏳</span><div class="proc-title">결제 처리 중...</div><div class="proc-sub">${method} 앱에서 승인 중입니다</div>${amtBox(tot)}<div class="proc-bar-wrap"><div class="proc-bar" id="proc-bar"></div></div><div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> QR 스캔 완료</div><div class="proc-step active"><span class="si">🔄</span> ${method} 승인 중...</div></div>`);
+    let pct=0;const iv=setInterval(()=>{pct+=3;const b=$('proc-bar');if(b)b.style.width=pct+'%';if(pct>=100)clearInterval(iv);},50);
+    setTimeout(()=>{setProc(`<span class="proc-success">✅</span><div class="proc-title">결제 승인 완료!</div><div class="proc-sub">${method}로 결제되었습니다</div>${amtBox(tot)}<div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> QR 스캔 완료</div><div class="proc-step done"><span class="si">✅</span> ${method} 승인 완료</div></div>`);setTimeout(()=>goPage('pg-stamp'),1800);},2000);
+  },3500);
+}
+function runCashFlow(tot){
+  setProc(`<span class="proc-icon">💵</span><div class="proc-title">현금을 투입해주세요</div><div class="proc-sub">지폐 또는 동전을 투입구에 넣어주세요</div>${amtBox(tot)}`);
+  setTimeout(()=>{setProc(`<span class="proc-success">✅</span><div class="proc-title">현금 확인 완료!</div><div class="proc-sub">결제가 완료되었습니다</div>${amtBox(tot)}`);setTimeout(()=>goPage('pg-stamp'),1800);},3000);
+}
+
+let phoneDigits2=phoneDigits;
+function kpInput(d){if(phoneDigits.length>=8)return;phoneDigits+=d;updatePhoneDisplay();}
+function kpDelete(){phoneDigits=phoneDigits.slice(0,-1);updatePhoneDisplay();}
+function updatePhoneDisplay(){
+  const s1=phoneDigits.slice(0,4).padEnd(4,'X'),s2=phoneDigits.slice(4,8).padEnd(4,'X');
+  const e1=$('phone-seg1'),e2=$('phone-seg2');if(!e1||!e2)return;
+  e1.textContent=s1;e2.textContent=s2;
+  e1.className='pseg '+(phoneDigits.length===0?'':phoneDigits.length<4?'active':'filled');
+  e2.className='pseg '+(phoneDigits.length<4?'':phoneDigits.length<8?'active':'filled');
+}
+function resetPhoneDisplay(){
+  phoneDigits='';
+  const e1=$('phone-seg1'),e2=$('phone-seg2');
+  if(e1){e1.textContent='XXXX';e1.className='pseg';}if(e2){e2.textContent='XXXX';e2.className='pseg';}
+}
+function finishOrder(){
+  orderNum=Math.floor(Math.random()*89)+10;$('order-num').textContent=orderNum;
+  const tot=cart.reduce((s,c)=>s+c.unit*c.qty,0);
+  $('done-items').innerHTML=cart.map(c=>`<div class="k-done-item"><span>${c.item.em} ${c.item.nm} × ${c.qty}</span><span>${(c.unit*c.qty).toLocaleString()}원</span></div>`).join('');
+  $('done-total').innerHTML=`<span>합계</span><span class="amt">${tot.toLocaleString()}원</span>`;
+  goPage('pg-done');
+}
+function resetAll(){
+  eat='';cart=[];curItem=null;curOpts={};curQty=1;curCat='전체';disc='';discType='';method='';
+  document.querySelectorAll('.k-eat-btn').forEach(b=>b.classList.remove('selected'));
+  $('stamp-phone')&&($('stamp-phone').value='');updateCartFab();resetPhoneDisplay();goPage('pg-idle');
+}
+
+// 키보드 입력
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.kp-btn:not(.kp-empty)').forEach(btn=>{
+    btn.addEventListener('pointerdown',()=>btn.classList.add('pressed'));
+    btn.addEventListener('pointerup',()=>btn.classList.remove('pressed'));
+    btn.addEventListener('pointerleave',()=>btn.classList.remove('pressed'));
+  });
+});
+document.addEventListener('keydown',(e)=>{
+  if($('pg-stamp')&&$('pg-stamp').classList.contains('active')){
+    if(e.key>='0'&&e.key<='9')kpInput(e.key);else if(e.key==='Backspace')kpDelete();
+  }
+});
+
+/* ════ 보조장치 JS ════ */
+const A_MENUS=[
+  {id:'b1',em:'🧊',nm:'아이스\n아메리카노',pr:4500},
+  {id:'b2',em:'🥛',nm:'카페라떼',pr:5000},
+  {id:'b3',em:'🍓',nm:'딸기라떼',pr:6000},
+  {id:'b4',em:'🍵',nm:'아이스티',pr:4000},
+  {id:'b5',em:'☕',nm:'아이스티\n샷추가',pr:4500},
+  {id:'b6',em:'🌿',nm:'말차라떼',pr:5500},
+];
+let aSelItem=null,aQty=1,aAngle=0,aCart=[],aEatType='';
+
+// ── 연동 함수들 ──
+function syncToKiosk(newItem){
+  // eat 설정 동기화
+  if(newItem.eat && eat !== newItem.eat){
+    eat = newItem.eat;
+    if($('hdr-eat-badge')) $('hdr-eat-badge').textContent = eat==='in'?'🪑 매장':'🛍️ 포장';
+  }
+  // 키오스크 장바구니에 추가
+  const kKey = newItem.item.id + 'default';
+  const kEx = cart.find(c=>c.key===kKey);
+  const kUnit = newItem.item.pr;
+  if(kEx){ kEx.qty += newItem.qty; }
+  else { cart.push({key:kKey, item:newItem.item, qty:newItem.qty, opts:{shot:'기본',syrup:'기본',pearl:'없음',temp:'ICE',size:'레귤러',cup:'일반 컵'}, extra:0, unit:kUnit}); }
+  updateCartFab();
+  // 키오스크가 대기화면이면 메뉴 화면으로 전환
+  const idle = $('pg-idle');
+  if(idle && idle.classList.contains('active')){
+    initMenu(); goPage('pg-menu');
+  }
+  syncCableFlash();
+  showSyncToast(`🔗 ${newItem.item.nm.replace('\n',' ')} 키오스크에 추가됐어요!`);
+}
+function syncCableFlash(){
+  document.querySelectorAll('.usb-cable').forEach(c=>{
+    c.classList.add('syncing');
+    setTimeout(()=>c.classList.remove('syncing'), 600);
+  });
+}
+function showSyncToast(msg){
+  const t=$('sync-toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function aInit(){
+  $('a-bgrid').innerHTML=A_MENUS.map(m=>`<div class="a-mbtn" id="am${m.id}" onclick="aSelMenu('${m.id}')"><div class="a-led"></div><span class="a-bem">${m.em}</span><div class="a-bnm">${m.nm.replace('\n','<br>')}</div><div class="a-bpr">${m.pr.toLocaleString()}원</div></div>`).join('');
+}
+function aSelEat(t){
+  aEatType=t;
+  document.querySelectorAll('.a-eat-btn').forEach(b=>b.classList.remove('on'));
+  $('a-eat-'+t).classList.add('on');
+}
+function aSelMenu(id){
+  aSelItem=A_MENUS.find(m=>m.id===id);aQty=1;aAngle=0;
+  $('a-qty-disp').textContent=1;aResetNotch();
+  document.querySelectorAll('.a-mbtn').forEach(b=>b.classList.remove('on'));
+  $('am'+id).classList.add('on');
+  $('a-btn-in').disabled=false;$('a-btn-out').disabled=false;
+}
+function aChangeQty(d){
+  if(!aSelItem)return;
+  aQty=Math.max(1,Math.min(10,aQty+d));$('a-qty-disp').textContent=aQty;
+  aAngle+=d*36;const n=$('a-dnotch');n.style.transform=`rotate(${aAngle}deg)`;n.style.transformOrigin='50% 250%';
+}
+function aRotateDial(){aChangeQty(1);}
+function aResetNotch(){const n=$('a-dnotch');if(n){n.style.transform='';n.style.transformOrigin='';}}
+function aAddToCart(eat){
+  if(!aSelItem)return;
+  const newItem={item:aSelItem,qty:aQty,eat};
+  const ex=aCart.find(c=>c.item.id===aSelItem.id&&c.eat===eat);
+  if(ex)ex.qty+=aQty;else aCart.push(newItem);
+  aSelItem=null;aQty=1;aAngle=0;$('a-qty-disp').textContent=1;aResetNotch();
+  document.querySelectorAll('.a-mbtn').forEach(b=>b.classList.remove('on'));
+  $('a-btn-in').disabled=true;$('a-btn-out').disabled=true;
+  aRenderCart();
+  // ── 키오스크 연동 ──
+  syncToKiosk(newItem);
+}
+function aRenderCart(){
+  const listEl=$('a-cart-list'),totalEl=$('a-cart-total'),payBtn=$('a-pay-btn');
+  if(!aCart.length){listEl.innerHTML='<div class="a-cart-empty">— 담긴 메뉴가 없습니다 —</div>';totalEl.classList.add('hidden');payBtn.disabled=true;return;}
+  payBtn.disabled=false;
+  listEl.innerHTML=aCart.map((c,i)=>`<div class="a-cart-item"><span>${c.item.em} ${c.item.nm.replace('\n',' ')} ×${c.qty}</span><span class="a-ci-eat ${c.eat}">${c.eat==='in'?'매장':'포장'}</span><span style="color:var(--amber3);font-family:'Courier Prime',monospace;">${(c.item.pr*c.qty).toLocaleString()}원</span><button class="a-ci-del" onclick="aDelItem(${i})">✕</button></div>`).join('');
+  const tot=aCart.reduce((s,c)=>s+c.item.pr*c.qty,0);
+  totalEl.classList.remove('hidden');totalEl.innerHTML=`<span>TOTAL</span><span>${tot.toLocaleString()}원</span>`;
+}
+function aDelItem(i){aCart.splice(i,1);aRenderCart();}
+function aFinishOrder(){
+  // ── 키오스크 연동: 결제 화면으로 이동 ──
+  if(cart.length > 0){
+    syncCableFlash();
+    showSyncToast('💳 키오스크에서 결제를 진행해주세요!');
+    setTimeout(()=>goPayment(), 600);
+  }
+  const tot=aCart.reduce((s,c)=>s+c.item.pr*c.qty,0),tq=aCart.reduce((s,c)=>s+c.qty,0),num=Math.floor(Math.random()*89)+10;
+  $('a-done-num').textContent=num;
+  $('a-done-items').innerHTML=aCart.map(c=>`<div class="a-done-item"><span>${c.item.em} ${c.item.nm.replace('\n',' ')} ×${c.qty} [${c.eat==='in'?'매장':'포장'}]</span><span>${(c.item.pr*c.qty).toLocaleString()}원</span></div>`).join('');
+  $('a-done-total').innerHTML=`<span>합계 (${tq}잔)</span><span>${tot.toLocaleString()}원</span>`;
+  $('a-pg-done').classList.add('active');
+}
+function aResetAll(){
+  aCart=[];aSelItem=null;aQty=1;aAngle=0;aEatType='';
+  $('a-qty-disp').textContent=1;aResetNotch();
+  document.querySelectorAll('.a-mbtn').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.a-eat-btn').forEach(b=>b.classList.remove('on'));
+  $('a-btn-in').disabled=true;$('a-btn-out').disabled=true;
+  $('a-pg-done').classList.remove('active');
+  aRenderCart();
+}
+
+aInit();
+</script>
+</body>
+</html>
