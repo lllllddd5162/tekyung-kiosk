@@ -133,6 +133,38 @@ body::before{display:none;}
   white-space:nowrap;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;
 }
 #sync-toast.show{opacity:1;}
+
+/* 결제 요청 팝업 */
+#pay-request-popup{
+  position:absolute;inset:0;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;
+  z-index:200;padding:1.5rem;
+  animation:fadeIn .25s ease;
+  margin-top:28px; /* 베젤 높이 */
+}
+.prp-card{
+  background:#fff;border-radius:20px;
+  padding:2rem 1.75rem;width:100%;max-width:360px;text-align:center;
+  box-shadow:0 12px 40px rgba(0,0,0,.25);
+  animation:popIn .3s cubic-bezier(.34,1.56,.64,1);
+  border-top:5px solid var(--accent);
+}
+@keyframes popIn{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
+.prp-icon{font-size:2.8rem;margin-bottom:.6rem;}
+.prp-title{font-size:18px;font-weight:900;color:#1a1208;margin-bottom:.4rem;}
+.prp-sub{font-size:12px;color:#6b5a3e;line-height:1.7;margin-bottom:1.1rem;}
+.prp-items{background:#f7f5f2;border-radius:10px;padding:.75rem 1rem;margin-bottom:.75rem;text-align:left;}
+.prp-item{display:flex;justify-content:space-between;font-size:12px;color:#3d3020;padding:3px 0;border-bottom:1px solid #e0dbd4;}
+.prp-item:last-child{border:none;}
+.prp-total{display:flex;justify-content:space-between;font-size:15px;font-weight:700;color:#1a1208;padding:.6rem 1rem;background:rgba(255,107,53,.08);border-radius:10px;margin-bottom:1.1rem;}
+.prp-total span:last-child{color:var(--accent);font-family:'DM Mono',monospace;}
+.prp-btn{
+  width:100%;padding:.9rem;border-radius:12px;border:none;
+  background:var(--accent);color:#fff;font-size:14px;font-weight:700;
+  cursor:pointer;font-family:'Noto Sans KR',sans-serif;
+  box-shadow:0 3px 12px rgba(255,107,53,.3);transition:all .2s;
+}
+.prp-btn:hover{opacity:.9;transform:scale(.99);}
 .div-screw{display:none;}
 #divider::before,#divider::after{display:none;}
 
@@ -459,7 +491,22 @@ body::before{display:none;}
 .a-ci-eat.out{background:rgba(200,160,0,.15);color:var(--amber3);}
 .a-ci-del{background:none;border:1px solid var(--ared);color:#e55;cursor:pointer;font-size:10px;padding:1px 5px;font-family:'Courier Prime',monospace;transition:all .15s;}
 .a-ci-del:hover{background:var(--ared);color:#fff;}
-.a-cart-empty{text-align:center;color:var(--atx4);font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.07em;padding:.4rem 0;}
+/* ORDER LIST 고정 슬롯 */
+.a-slot{
+  display:flex;align-items:center;gap:.35rem;
+  font-size:10px;color:var(--atx2);font-family:'Courier Prime',monospace;
+  padding:4px 0;border-bottom:1px dashed #2a2010;
+}
+.a-slot:last-child{border:none;}
+.a-slot-em{font-size:1rem;flex-shrink:0;}
+.a-slot-nm{flex:1;color:var(--atx3);font-size:9px;overflow:hidden;white-space:nowrap;}
+.a-slot-qty{
+  font-size:13px;font-weight:700;color:var(--atx4);
+  font-family:'Courier Prime',monospace;
+  min-width:28px;text-align:right;transition:color .2s;
+}
+.a-slot.active .a-slot-qty{color:var(--amber3);text-shadow:0 0 6px rgba(245,200,66,.4);}
+.a-slot.active .a-slot-nm{color:var(--atx2);}
 .a-cart-total{display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--amber3);font-family:'Courier Prime',monospace;padding-top:.5rem;margin-top:.35rem;border-top:2px solid var(--amber2);}
 
 /* 결제하기 */
@@ -509,6 +556,17 @@ body::before{display:none;}
   <!-- ══ 왼쪽: 키오스크 프레임 ══ -->
   <div id="kiosk-frame">
     <div id="sync-toast">🔗 보조장치에서 메뉴가 추가됐어요!</div>
+    <!-- 보조장치 결제 요청 팝업 (키오스크 중앙) -->
+    <div id="pay-request-popup" class="hidden">
+      <div class="prp-card">
+        <div class="prp-icon">🎛️</div>
+        <div class="prp-title">보조장치에서 결제 요청</div>
+        <div class="prp-sub">보조장치에서 결제 요청이 왔습니다.<br>확인 후 결제를 진행해주세요.</div>
+        <div class="prp-items" id="prp-items"></div>
+        <div class="prp-total" id="prp-total"></div>
+        <button class="prp-btn" onclick="confirmPayRequest()">💳 카드 결제하기 →</button>
+      </div>
+    </div>
     <div class="kiosk-screen">
 
       <!-- 바코드 오버레이 -->
@@ -664,36 +722,6 @@ body::before{display:none;}
       </div>
 
       <!-- 6. 스탬프 -->
-      <div class="page" id="pg-stamp">
-        <div class="stamp-card">
-          <div class="stamp-ico">⭐</div>
-          <div class="stamp-ttl">스탬프 적립</div>
-          <div class="stamp-sub">휴대폰 번호를 입력하시면 스탬프가 적립됩니다.<br><small style="color:var(--tx3);">10개 적립 시 무료 음료 쿠폰</small></div>
-          <div class="phone-display" id="phone-display">
-            <span id="phone-seg0" class="pseg filled">010</span><span class="pdash">-</span>
-            <span id="phone-seg1" class="pseg">XXXX</span><span class="pdash">-</span>
-            <span id="phone-seg2" class="pseg">XXXX</span>
-          </div>
-          <div class="keypad">
-            <button class="kp-btn" onclick="kpInput('1')">1</button>
-            <button class="kp-btn" onclick="kpInput('2')">2<span>ABC</span></button>
-            <button class="kp-btn" onclick="kpInput('3')">3<span>DEF</span></button>
-            <button class="kp-btn" onclick="kpInput('4')">4<span>GHI</span></button>
-            <button class="kp-btn" onclick="kpInput('5')">5<span>JKL</span></button>
-            <button class="kp-btn" onclick="kpInput('6')">6<span>MNO</span></button>
-            <button class="kp-btn" onclick="kpInput('7')">7<span>PQRS</span></button>
-            <button class="kp-btn" onclick="kpInput('8')">8<span>TUV</span></button>
-            <button class="kp-btn" onclick="kpInput('9')">9<span>WXYZ</span></button>
-            <button class="kp-btn kp-empty"></button>
-            <button class="kp-btn" onclick="kpInput('0')">0</button>
-            <button class="kp-btn kp-del" onclick="kpDelete()">⌫</button>
-          </div>
-          <div class="stamp-btns">
-            <button class="btn-main btn-ghost" onclick="finishOrder()">건너뛰기</button>
-            <button class="btn-main btn-accent" onclick="finishOrder()">적립하기</button>
-          </div>
-        </div>
-      </div>
 
       <!-- 7. 완료 -->
       <div class="page" id="pg-done">
@@ -749,8 +777,16 @@ body::before{display:none;}
         <button class="a-done-btn" id="a-btn-out" disabled onclick="aAddToCart('out')">[ 🛍️ 포장 ]</button>
       </div>
       <div class="a-cart-box" id="a-cart-box">
-        <div id="a-cart-list"><div class="a-cart-empty">— 담긴 메뉴가 없습니다 —</div></div>
-        <div class="a-cart-total hidden" id="a-cart-total"></div>
+        <div id="a-cart-list">
+          <!-- 6개 고정 슬롯 - JS로 수량만 업데이트 -->
+          <div class="a-slot" id="slot-b1"><span class="a-slot-em">🧊</span><span class="a-slot-nm">아이스 아메리카노</span><span class="a-slot-qty" id="sqty-b1">0</span></div>
+          <div class="a-slot" id="slot-b2"><span class="a-slot-em">🥛</span><span class="a-slot-nm">카페라떼</span><span class="a-slot-qty" id="sqty-b2">0</span></div>
+          <div class="a-slot" id="slot-b3"><span class="a-slot-em">🍓</span><span class="a-slot-nm">딸기라떼</span><span class="a-slot-qty" id="sqty-b3">0</span></div>
+          <div class="a-slot" id="slot-b4"><span class="a-slot-em">🍵</span><span class="a-slot-nm">아이스티</span><span class="a-slot-qty" id="sqty-b4">0</span></div>
+          <div class="a-slot" id="slot-b5"><span class="a-slot-em">☕</span><span class="a-slot-nm">아이스티 샷추가</span><span class="a-slot-qty" id="sqty-b5">0</span></div>
+          <div class="a-slot" id="slot-b6"><span class="a-slot-em">🌿</span><span class="a-slot-nm">말차라떼</span><span class="a-slot-qty" id="sqty-b6">0</span></div>
+        </div>
+        <div class="a-cart-total" id="a-cart-total"><span>TOTAL</span><span id="a-total-amt">0원</span></div>
       </div>
       <button class="a-pay-btn" id="a-pay-btn" disabled onclick="aFinishOrder()">[ 결제하기 ]</button>
     </div>
@@ -933,7 +969,7 @@ function runCardFlow(tot){
   setTimeout(()=>{
     setProc(`<span class="proc-icon">⏳</span><div class="proc-title">결제 처리 중...</div><div class="proc-sub">카드사에 승인을 요청하고 있습니다</div>${amtBox(tot)}<div class="proc-bar-wrap"><div class="proc-bar" id="proc-bar"></div></div><div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> 카드 인식 완료</div><div class="proc-step active"><span class="si">🔄</span> 카드사 승인 요청 중...</div></div>`);
     let pct=0;const iv=setInterval(()=>{pct+=2;const b=$('proc-bar');if(b)b.style.width=pct+'%';if(pct>=100)clearInterval(iv);},40);
-    setTimeout(()=>{setProc(`<span class="proc-success">✅</span><div class="proc-title">결제 승인 완료!</div><div class="proc-sub">${method}로 결제되었습니다</div>${amtBox(tot)}<div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> 카드 인식 완료</div><div class="proc-step done"><span class="si">✅</span> 카드사 승인 완료</div></div>`);setTimeout(()=>goPage('pg-stamp'),1800);},2500);
+    setTimeout(()=>{setProc(`<span class="proc-success">✅</span><div class="proc-title">결제 승인 완료!</div><div class="proc-sub">${method}로 결제되었습니다</div>${amtBox(tot)}<div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> 카드 인식 완료</div><div class="proc-step done"><span class="si">✅</span> 카드사 승인 완료</div></div>`);setTimeout(()=>finishOrder(),1800);},2500);
   },2500);
 }
 function runQrFlow(tot){
@@ -945,12 +981,12 @@ function runQrFlow(tot){
   setTimeout(()=>{
     setProc(`<span class="proc-icon">⏳</span><div class="proc-title">결제 처리 중...</div><div class="proc-sub">${method} 앱에서 승인 중입니다</div>${amtBox(tot)}<div class="proc-bar-wrap"><div class="proc-bar" id="proc-bar"></div></div><div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> QR 스캔 완료</div><div class="proc-step active"><span class="si">🔄</span> ${method} 승인 중...</div></div>`);
     let pct=0;const iv=setInterval(()=>{pct+=3;const b=$('proc-bar');if(b)b.style.width=pct+'%';if(pct>=100)clearInterval(iv);},50);
-    setTimeout(()=>{setProc(`<span class="proc-success">✅</span><div class="proc-title">결제 승인 완료!</div><div class="proc-sub">${method}로 결제되었습니다</div>${amtBox(tot)}<div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> QR 스캔 완료</div><div class="proc-step done"><span class="si">✅</span> ${method} 승인 완료</div></div>`);setTimeout(()=>goPage('pg-stamp'),1800);},2000);
+    setTimeout(()=>{setProc(`<span class="proc-success">✅</span><div class="proc-title">결제 승인 완료!</div><div class="proc-sub">${method}로 결제되었습니다</div>${amtBox(tot)}<div class="proc-steps"><div class="proc-step done"><span class="si">✅</span> QR 스캔 완료</div><div class="proc-step done"><span class="si">✅</span> ${method} 승인 완료</div></div>`);setTimeout(()=>finishOrder(),1800);},2000);
   },3500);
 }
 function runCashFlow(tot){
   setProc(`<span class="proc-icon">💵</span><div class="proc-title">현금을 투입해주세요</div><div class="proc-sub">지폐 또는 동전을 투입구에 넣어주세요</div>${amtBox(tot)}`);
-  setTimeout(()=>{setProc(`<span class="proc-success">✅</span><div class="proc-title">현금 확인 완료!</div><div class="proc-sub">결제가 완료되었습니다</div>${amtBox(tot)}`);setTimeout(()=>goPage('pg-stamp'),1800);},3000);
+  setTimeout(()=>{setProc(`<span class="proc-success">✅</span><div class="proc-title">현금 확인 완료!</div><div class="proc-sub">결제가 완료되었습니다</div>${amtBox(tot)}`);setTimeout(()=>finishOrder(),1800);},3000);
 }
 
 let phoneDigits2=phoneDigits;
@@ -974,11 +1010,15 @@ function finishOrder(){
   $('done-items').innerHTML=cart.map(c=>`<div class="k-done-item"><span>${c.item.em} ${c.item.nm} × ${c.qty}</span><span>${(c.unit*c.qty).toLocaleString()}원</span></div>`).join('');
   $('done-total').innerHTML=`<span>합계</span><span class="amt">${tot.toLocaleString()}원</span>`;
   goPage('pg-done');
+  // ── 보조장치 초기화 ──
+  setTimeout(()=>aResetAll(), 800);
 }
 function resetAll(){
   eat='';cart=[];curItem=null;curOpts={};curQty=1;curCat='전체';disc='';discType='';method='';
   document.querySelectorAll('.k-eat-btn').forEach(b=>b.classList.remove('selected'));
-  $('stamp-phone')&&($('stamp-phone').value='');updateCartFab();resetPhoneDisplay();goPage('pg-idle');
+  $('stamp-phone')&&($('stamp-phone').value='');updateCartFab();resetPhoneDisplay();
+  $('pay-request-popup').classList.add('hidden');
+  goPage('pg-idle');
 }
 
 // 키보드 입력
@@ -1057,7 +1097,7 @@ function aSelMenu(id){
 }
 function aChangeQty(d){
   if(!aSelItem)return;
-  aQty=Math.max(1,Math.min(10,aQty+d));$('a-qty-disp').textContent=aQty;
+  aQty=Math.max(1,Math.min(99,aQty+d));$('a-qty-disp').textContent=aQty;
   aAngle+=d*36;const n=$('a-dnotch');n.style.transform=`rotate(${aAngle}deg)`;n.style.transformOrigin='50% 250%';
 }
 function aRotateDial(){aChangeQty(1);}
@@ -1073,28 +1113,52 @@ function aAddToCart(eat){
   aRenderCart();
   // ── 키오스크 연동 ──
   syncToKiosk(newItem);
+  // 담기 후 키오스크 장바구니로 전환
+  setTimeout(()=>goPage('pg-cart'), 400);
 }
 function aRenderCart(){
-  const listEl=$('a-cart-list'),totalEl=$('a-cart-total'),payBtn=$('a-pay-btn');
-  if(!aCart.length){listEl.innerHTML='<div class="a-cart-empty">— 담긴 메뉴가 없습니다 —</div>';totalEl.classList.add('hidden');payBtn.disabled=true;return;}
-  payBtn.disabled=false;
-  listEl.innerHTML=aCart.map((c,i)=>`<div class="a-cart-item"><span>${c.item.em} ${c.item.nm.replace('\n',' ')} ×${c.qty}</span><span class="a-ci-eat ${c.eat}">${c.eat==='in'?'매장':'포장'}</span><span style="color:var(--amber3);font-family:'Courier Prime',monospace;">${(c.item.pr*c.qty).toLocaleString()}원</span><button class="a-ci-del" onclick="aDelItem(${i})">✕</button></div>`).join('');
+  const payBtn=$('a-pay-btn');
+  // 6개 슬롯 수량 초기화
+  A_MENUS.forEach(m=>{
+    const qEl=$('sqty-'+m.id);
+    const sEl=$('slot-'+m.id);
+    // 해당 메뉴의 전체 수량 합산 (매장+포장)
+    const totalQty = aCart.filter(c=>c.item.id===m.id).reduce((s,c)=>s+c.qty,0);
+    if(qEl) qEl.textContent = totalQty > 0 ? '×'+totalQty : '0';
+    if(sEl) sEl.classList.toggle('active', totalQty > 0);
+  });
+  // 합계 업데이트
   const tot=aCart.reduce((s,c)=>s+c.item.pr*c.qty,0);
-  totalEl.classList.remove('hidden');totalEl.innerHTML=`<span>TOTAL</span><span>${tot.toLocaleString()}원</span>`;
+  const totalEl=$('a-cart-total');
+  const amtEl=$('a-total-amt');
+  if(amtEl) amtEl.textContent = tot.toLocaleString()+'원';
+  if(totalEl) totalEl.style.opacity = tot > 0 ? '1' : '0.3';
+  payBtn.disabled = !aCart.length;
 }
-function aDelItem(i){aCart.splice(i,1);aRenderCart();}
 function aFinishOrder(){
-  // ── 키오스크 연동: 결제 화면으로 이동 ──
-  if(cart.length > 0){
-    syncCableFlash();
-    showSyncToast('💳 키오스크에서 결제를 진행해주세요!');
-    setTimeout(()=>goPayment(), 600);
-  }
-  const tot=aCart.reduce((s,c)=>s+c.item.pr*c.qty,0),tq=aCart.reduce((s,c)=>s+c.qty,0),num=Math.floor(Math.random()*89)+10;
-  $('a-done-num').textContent=num;
-  $('a-done-items').innerHTML=aCart.map(c=>`<div class="a-done-item"><span>${c.item.em} ${c.item.nm.replace('\n',' ')} ×${c.qty} [${c.eat==='in'?'매장':'포장'}]</span><span>${(c.item.pr*c.qty).toLocaleString()}원</span></div>`).join('');
-  $('a-done-total').innerHTML=`<span>합계 (${tq}잔)</span><span>${tot.toLocaleString()}원</span>`;
-  $('a-pg-done').classList.add('active');
+  if(!aCart.length) return;
+  syncCableFlash();
+
+  // 팝업에 주문 내역 채우기
+  const tot = aCart.reduce((s,c)=>s+c.item.pr*c.qty,0);
+  $('prp-items').innerHTML = aCart.map(c=>
+    `<div class="prp-item">
+      <span>${c.item.em} ${c.item.nm.replace('\n',' ')} ×${c.qty} <span style="font-size:10px;color:var(--accent);">[${c.eat==='in'?'매장':'포장'}]</span></span>
+      <span>${(c.item.pr*c.qty).toLocaleString()}원</span>
+    </div>`
+  ).join('');
+  $('prp-total').innerHTML = `<span>합계</span><span>${tot.toLocaleString()}원</span>`;
+
+  // 팝업 표시
+  $('pay-request-popup').classList.remove('hidden');
+}
+
+function confirmPayRequest(){
+  $('pay-request-popup').classList.add('hidden');
+  method = '카드결제'; // 기본 카드 결제로 설정
+  const tot = cart.reduce((s,c)=>s+c.unit*c.qty, 0);
+  goPage('pg-processing');
+  runCardFlow(tot);
 }
 function aResetAll(){
   aCart=[];aSelItem=null;aQty=1;aAngle=0;aEatType='';
